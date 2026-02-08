@@ -6,6 +6,12 @@ import os
 import time
 from dateutil import parser
 from groq import Groq
+try:
+    from mistralai import Mistral
+    MISTRAL_AVAILABLE = True
+except ImportError:
+    Mistral = None
+    MISTRAL_AVAILABLE = False
 from urllib.parse import quote
 
 # Load .env file for local development
@@ -62,6 +68,7 @@ GITHUB_TOKEN = os.getenv('MY_GITHUB_TOKEN') or os.getenv('GITHUB_TOKEN') or None
 MAX_POSTS = int(os.getenv('MAX_POSTS', '999'))  # Process ALL activities found (no limit)
 POST_DELAY_SECONDS = int(os.getenv('POST_DELAY_SECONDS', '3600'))  # 1 hour delay between posts
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+MISTRAL_API_KEY = os.getenv('MISTRAL_API_KEY', '')
 UNSPLASH_ACCESS_KEY = os.getenv('UNSPLASH_ACCESS_KEY', '')  # Optional: for fetching images
 
 # Validate credentials are set
@@ -70,8 +77,9 @@ if not LINKEDIN_ACCESS_TOKEN or not LINKEDIN_USER_URN or not GROQ_API_KEY:
     print("   Set environment variables: LINKEDIN_ACCESS_TOKEN, LINKEDIN_USER_URN, GROQ_API_KEY")
     print("   Or create a .env file in the project directory")
 
-# Initialize Groq client
-client = Groq(api_key=GROQ_API_KEY)
+# Initialize AI clients
+groq_client = Groq(api_key=GROQ_API_KEY)
+mistral_client = Mistral(api_key=MISTRAL_API_KEY) if MISTRAL_AVAILABLE and MISTRAL_API_KEY else None
 
 # --- LINKEDIN PERSONA (AI Personality) ---
 LINKEDIN_PERSONA = """You are writing LinkedIn posts for Clifford (Darko) Opoku-Sarkodie, a Creative Technologist, Web Developer, and CS Student.
@@ -86,15 +94,16 @@ ABOUT THE VOICE:
 
 LINKEDIN POST STRUCTURE:
 1. Hook (1-2 sentences): Relatable question, observation, or story
-   - CRITICAL: NEVER start with "As I", "As a", "I just", "Just", "Today I", "Recently", "So I"  
-   - MUST use one of these hook STARTERS (pick randomly):
-     * A bold statement: "Most developers get this wrong..."
-     * A confession: "I'll admit it—"
-     * A number: "After 100 commits...", "3 things I learned..."
-     * A question: "Ever had that moment when..."
-     * A scene: "It was 2am. My code wasn't working."
-     * A contradiction: "Everyone says X. I disagree."
-   - EVERY post opening MUST be completely different
+   - CRITICAL: NEVER start with "As I", "As a", "I just", "Just", "Today I", "Recently", "So I", "Ever had"
+   - MUST use one of these hook STARTERS (pick RANDOMLY using the timestamp seed):
+     * A bold statement: "Most developers get this wrong..." / "Hot take:" / "Unpopular opinion:"
+     * A confession: "I'll admit it—" / "Confession:" / "I used to think..."
+     * A number: "After 100 commits..." / "3 things I learned..." / "Day 57:"
+     * A scene: "It was 2am. My code wasn't working." / "Picture this:" / "There I was..."
+     * A contradiction: "Everyone says X. I disagree." / "They said it couldn't be done."
+     * A challenge: "Who else has struggled with..." / "The hardest part of..."
+   - EVERY post opening MUST be COMPLETELY DIFFERENT from the last one
+   - If you've used a question hook before, use a statement this time
 2. Body (3-5 sentences): Develop the idea with a specific example or experience
 3. Insight (1-2 sentences): What you learned and why it matters
 4. Call to Action (1 sentence): Engage your network
@@ -133,6 +142,25 @@ MANDATORY:
 - Posts must feel COMPLETE - no cutting off mid-sentence
 - Balance technical insight with accessibility
 - Share learning, not just achievements"""
+
+# Anti-patterns: Banned LinkedIn clichés that make posts feel generic
+ANTI_PATTERNS = """
+NEVER USE THESE PHRASES (they make posts feel generic and inauthentic):
+- "Excited to announce..." / "Thrilled to share..."
+- "I'm humbled to..." / "Honored to..."
+- "Game-changer" / "Revolutionary" / "Cutting-edge"
+- "Leveraging" / "Synergy" / "Paradigm shift"
+- "In this fast-paced world..." / "In today's digital age..."
+- "Thought leadership" / "Value proposition"
+- "Passionate about..." (show don't tell)
+- "At the end of the day..."
+- "Let's unpack this..." / "Deep dive"
+- "Moving the needle" / "Low-hanging fruit"
+- "Circle back" / "Touch base"
+- "It goes without saying..."
+
+INSTEAD: Use specific, concrete language. Show enthusiasm through details, not buzzwords.
+"""
 
 # --- SENSOR 2: GITHUB STATS CHECKER ---
 def get_github_stats():
@@ -458,20 +486,43 @@ Requirements:
 - FINISH THE ENTIRE POST before stopping
 
 {LINKEDIN_PERSONA}
+
+{ANTI_PATTERNS}
 """
         
-        # Call Groq API with system message emphasizing completion
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": "You are a LinkedIn post writer. You MUST complete every post you write. Every post MUST end with exactly 15-20 hashtags on the final line. Include @mentions naturally when relevant. NEVER stop mid-sentence or before adding the hashtags."},
-                {"role": "user", "content": context_prompt}
-            ],
-            temperature=0.7,
-            max_tokens=4000,
-        )
+        # Randomly select between available AI models for variety
+        system_message = "You are a LinkedIn post writer. You MUST complete every post you write. Every post MUST end with exactly 8-12 hashtags on the final line. Include @mentions naturally when relevant. NEVER stop mid-sentence or before adding the hashtags."
         
-        post_content = response.choices[0].message.content.strip()
+        available_models = ["groq"]
+        if mistral_client:
+            available_models.append("mistral")
+        
+        selected_model = random.choice(available_models)
+        
+        if selected_model == "mistral" and mistral_client:
+            print(f"🌀 Using Mistral AI for this post...")
+            response = mistral_client.chat.complete(
+                model="mistral-large-latest",
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": context_prompt}
+                ],
+                temperature=0.7,
+                max_tokens=4000,
+            )
+            post_content = response.choices[0].message.content.strip()
+        else:
+            print(f"⚡ Using Groq (Llama 3.3) for this post...")
+            response = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": context_prompt}
+                ],
+                temperature=0.7,
+                max_tokens=4000,
+            )
+            post_content = response.choices[0].message.content.strip()
 
         # Ensure the model didn't cut off mid-sentence or omit required hashtags
         def _looks_complete(text: str) -> bool:
@@ -481,9 +532,9 @@ Requirements:
             if not lines:
                 return False
             last = lines[-1]
-            # MUST have hashtags line with 15-20 hashtags
+            # MUST have hashtags line with 8-12 hashtags
             tags = [w for w in last.split() if w.startswith('#')]
-            if 15 <= len(tags) <= 20:
+            if 8 <= len(tags) <= 12:
                 return True
             # If no hashtags, it's incomplete
             return False
@@ -499,7 +550,7 @@ Requirements:
                     if has_hashtags:
                         # Already has hashtags line, might just need more hashtags
                         tags = [w for w in last_line.split() if w.startswith('#')]
-                        if len(tags) >= 15:
+                        if len(tags) >= 8:
                             return current_text  # Already complete
                     
                     # Determine what's missing
@@ -507,7 +558,7 @@ Requirements:
                         # Complete sentence but no hashtags - just add hashtags
                         cont_prompt = (
                             "The LinkedIn post below is complete but missing the required hashtags. "
-                            "Output ONLY a line with exactly 15-20 relevant diverse hashtags (space-separated). "
+                            "Output ONLY a line with exactly 8-12 relevant diverse hashtags (space-separated). "
                             "Include hashtags for: topic, tech stack, community tags, career tags. "
                             "Format: #Tag1 #Tag2 #Tag3 etc.\n\nPOST:\n" + current_text
                         )
@@ -515,7 +566,7 @@ Requirements:
                         # Incomplete - need to finish the thought AND add hashtags
                         cont_prompt = (
                             "The LinkedIn post below is incomplete. Continue it briefly (1-2 sentences max), "
-                            "then on a NEW LINE add exactly 15-20 relevant diverse hashtags.\n\nPOST SO FAR:\n" + current_text
+                            "then on a NEW LINE add exactly 8-12 relevant diverse hashtags.\n\nPOST SO FAR:\n" + current_text
                         )
                     
                     resp = client.chat.completions.create(

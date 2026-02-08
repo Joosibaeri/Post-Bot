@@ -119,15 +119,51 @@ class GenerationResult:
 # PROMPT TEMPLATES (Shared across all providers)
 # =============================================================================
 
-BASE_PERSONA = """You are writing LinkedIn posts for Clifford (Darko) Opoku-Sarkodie, a Creative Technologist, Web Developer, and CS Student.
+BASE_PERSONA = """You are a professional software developer sharing your coding journey on LinkedIn.
 
 ABOUT THE VOICE:
-- Young, energetic developer passionate about web development and creativity
-- Balances technical skills with design thinking and UI/UX expertise
-- CS student on a learning journey - shares real discoveries and "aha moments"
-- Enthusiastic about building beautiful, functional web experiences
-- Community-focused and open to collaboration
-- Growing professional navigating the tech industry"""
+- Write authentic, engaging posts that showcase technical work while being relatable
+- Balance technical depth with accessibility - explain without being condescending
+- Share real discoveries, challenges, and "aha moments" from development work
+- Avoid corporate jargon. Use a friendly, knowledgeable tone
+- Be community-focused and open to collaboration
+- Focus on value and insights, not self-promotion"""
+
+# Anti-patterns: Banned LinkedIn clichés that make posts feel generic
+ANTI_PATTERNS = """
+NEVER USE THESE PHRASES (they make posts feel generic and inauthentic):
+- "Excited to announce..." / "Thrilled to share..."
+- "I'm humbled to..." / "Honored to..."
+- "Game-changer" / "Revolutionary" / "Cutting-edge"
+- "Leveraging" / "Synergy" / "Paradigm shift"
+- "In this fast-paced world..." / "In today's digital age..."
+- "Thought leadership" / "Value proposition"
+- "Passionate about..." (show don't tell)
+- "At the end of the day..."
+- "Let's unpack this..." / "Deep dive"
+- "Moving the needle" / "Low-hanging fruit"
+- "Circle back" / "Touch base"
+- "It goes without saying..."
+
+INSTEAD: Use specific, concrete language. Show enthusiasm through details, not buzzwords.
+"""
+
+# Template-specific temperatures for optimal tone matching
+TEMPLATE_TEMPERATURES = {
+    "standard": 0.8,        # Balanced
+    "build_in_public": 0.85, # Slightly more creative for authenticity
+    "thought_leadership": 0.75, # More measured for credibility
+    "job_search": 0.7,      # Professional, polished
+    "excited": 0.9,         # High energy, creative
+    "thoughtful": 0.7,      # Reflective, measured
+    "educational": 0.65,    # Factual, clear
+    "casual": 0.85,         # Natural, conversational
+    "motivational": 0.85,   # Inspiring, warm
+    "storytelling": 0.9,    # Narrative, engaging
+    "technical": 0.6,       # Precise, accurate
+    "celebratory": 0.85,    # Joyful, expressive
+    "curious": 0.8,         # Open, exploratory
+}
 
 TEMPLATES = {
     "standard": """
@@ -463,6 +499,9 @@ YOU MUST GENERATE A COMPLETELY UNIQUE POST:
     activity_tone = get_activity_tone_modifier(activity_type)
     system_prompt += activity_tone
     
+    # Add anti-pattern restrictions to avoid LinkedIn clichés
+    system_prompt += "\n" + ANTI_PATTERNS
+    
     return system_prompt
 
 
@@ -621,6 +660,7 @@ def _generate_with_groq(
     system_prompt: str,
     user_prompt: str,
     api_key: Optional[str] = None,
+    temperature: float = 0.8,
 ) -> Optional[str]:
     """
     Generate post using Groq (Llama 3.3 70B).
@@ -645,8 +685,8 @@ def _generate_with_groq(
                 {"role": "user", "content": user_prompt},
             ],
             model=GROQ_MODEL,
-            temperature=0.95,
-            max_tokens=600,
+            temperature=temperature,
+            max_tokens=1000,
         )
         
         return response.choices[0].message.content
@@ -660,6 +700,7 @@ def _generate_with_openai(
     system_prompt: str,
     user_prompt: str,
     api_key: Optional[str] = None,
+    temperature: float = 0.8,
 ) -> Optional[str]:
     """
     Generate post using OpenAI GPT-4o.
@@ -684,8 +725,8 @@ def _generate_with_openai(
                 {"role": "user", "content": user_prompt},
             ],
             model=OPENAI_MODEL,
-            temperature=0.95,
-            max_tokens=600,
+            temperature=temperature,
+            max_tokens=1000,
         )
         
         return response.choices[0].message.content
@@ -699,6 +740,7 @@ def _generate_with_anthropic(
     system_prompt: str,
     user_prompt: str,
     api_key: Optional[str] = None,
+    temperature: float = 0.8,
 ) -> Optional[str]:
     """
     Generate post using Anthropic Claude 3.5 Sonnet.
@@ -719,7 +761,8 @@ def _generate_with_anthropic(
         
         response = client.messages.create(
             model=ANTHROPIC_MODEL,
-            max_tokens=600,
+            max_tokens=1000,
+            temperature=temperature,
             system=system_prompt,
             messages=[
                 {"role": "user", "content": user_prompt},
@@ -738,6 +781,7 @@ def _generate_with_mistral(
     system_prompt: str,
     user_prompt: str,
     api_key: Optional[str] = None,
+    temperature: float = 0.8,
 ) -> Optional[str]:
     """
     Generate post using Mistral AI.
@@ -762,8 +806,8 @@ def _generate_with_mistral(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.95,
-            max_tokens=600,
+            temperature=temperature,
+            max_tokens=1000,
         )
         
         return response.choices[0].message.content
@@ -903,20 +947,23 @@ async def generate_linkedin_post(
     content = None
     model_used = ""
     
+    # Get template-specific temperature for better tone matching
+    temperature = TEMPLATE_TEMPERATURES.get(style, 0.8)
+    
     if actual_provider == ModelProvider.GROQ:
-        content = _generate_with_groq(system_prompt, user_prompt, groq_api_key)
+        content = _generate_with_groq(system_prompt, user_prompt, groq_api_key, temperature)
         model_used = GROQ_MODEL
         
     elif actual_provider == ModelProvider.MISTRAL:
-        content = _generate_with_mistral(system_prompt, user_prompt, mistral_api_key)
+        content = _generate_with_mistral(system_prompt, user_prompt, mistral_api_key, temperature)
         model_used = MISTRAL_MODEL
         
     elif actual_provider == ModelProvider.OPENAI:
-        content = _generate_with_openai(system_prompt, user_prompt, openai_api_key)
+        content = _generate_with_openai(system_prompt, user_prompt, openai_api_key, temperature)
         model_used = OPENAI_MODEL
         
     elif actual_provider == ModelProvider.ANTHROPIC:
-        content = _generate_with_anthropic(system_prompt, user_prompt, anthropic_api_key)
+        content = _generate_with_anthropic(system_prompt, user_prompt, anthropic_api_key, temperature)
         model_used = ANTHROPIC_MODEL
     
     if not content:

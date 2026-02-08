@@ -83,6 +83,7 @@ const DAY_OPTIONS = [1, 3, 7, 14, 30];
 // AI Model options (Pro feature)
 const AI_MODELS = [
     { value: 'groq', label: 'Groq (Fast)', icon: '⚡', freeAvailable: true },
+    { value: 'mistral', label: 'Mistral', icon: '🌀', freeAvailable: true },
     { value: 'gpt4', label: 'GPT-4', icon: '🧠', freeAvailable: false },
     { value: 'claude', label: 'Claude', icon: '🎭', freeAvailable: false }
 ];
@@ -215,7 +216,8 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
             const response = await axios.post(`${API_BASE}/api/post/generate-batch`, {
                 user_id: userId,
                 activities: toGenerate,
-                style: selectedTemplate
+                style: selectedTemplate,
+                model: selectedModel,
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -253,7 +255,7 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
         } finally {
             setGenerating(false);
         }
-    }, [activities, userId]);
+    }, [activities, userId, getToken, selectedTemplate, selectedModel]);
 
     // Load images for a post
     const handleLoadImages = useCallback(async (postId: string) => {
