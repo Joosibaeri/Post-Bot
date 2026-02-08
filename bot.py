@@ -1009,17 +1009,38 @@ def post_to_twitter(message_text: str, linkedin_post: Optional[str] = None) -> O
             break
     clean_content = '\n'.join(clean_lines).strip()
     
-    # Get the first meaningful paragraph as the tweet
+    # Build tweet from the first 2-3 short paragraphs that fit
     paragraphs = [p.strip() for p in clean_content.split('\n\n') if p.strip()]
     
-    if paragraphs:
-        tweet_text = paragraphs[0]
-    else:
-        tweet_text = clean_content[:250]
+    # Target: fit complete sentences within 260 chars (leave room for hashtags)
+    MAX_TWEET_BODY = 260
+    tweet_text = ""
+    for para in paragraphs:
+        candidate = (tweet_text + "\n\n" + para).strip() if tweet_text else para
+        if len(candidate) <= MAX_TWEET_BODY:
+            tweet_text = candidate
+        else:
+            # Try to fit individual sentences from this paragraph
+            sentences = re.split(r'(?<=[.!?])\s+', para)
+            for sentence in sentences:
+                candidate = (tweet_text + " " + sentence).strip() if tweet_text else sentence
+                if len(candidate) <= MAX_TWEET_BODY:
+                    tweet_text = candidate
+                else:
+                    break
+            break
     
-    # Truncate to 270 chars to leave room for "..." if needed
-    if len(tweet_text) > 270:
-        tweet_text = tweet_text[:267] + "..."
+    # If we still have nothing (edge case), take the first sentence
+    if not tweet_text:
+        first_sentence = re.split(r'(?<=[.!?])\s+', clean_content)[0]
+        tweet_text = first_sentence[:MAX_TWEET_BODY]
+    
+    # Ensure the tweet ends with proper punctuation, not mid-word
+    if not tweet_text.rstrip().endswith(('.', '!', '?')):
+        # Find the last complete sentence
+        last_punc = max(tweet_text.rfind('.'), tweet_text.rfind('!'), tweet_text.rfind('?'))
+        if last_punc > 50:  # Only trim if we keep enough content
+            tweet_text = tweet_text[:last_punc + 1]
     
     # Add a couple relevant hashtags back
     hashtags = " #DevSecOps #Tech"
