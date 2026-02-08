@@ -461,9 +461,31 @@ HOOK_STARTERS = [
     "You know that feeling when",
 ]
 
+_LAST_HOOK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".last_hook")
+
 def get_random_hook() -> str:
-    """Get a random hook starter for variety."""
-    return random.choice(HOOK_STARTERS)
+    """Get a random hook starter, guaranteed different from the last one used."""
+    last_hook = ""
+    try:
+        if os.path.exists(_LAST_HOOK_FILE):
+            with open(_LAST_HOOK_FILE, "r", encoding="utf-8") as f:
+                last_hook = f.read().strip()
+    except OSError:
+        pass
+
+    candidates = [h for h in HOOK_STARTERS if h != last_hook]
+    if not candidates:
+        candidates = HOOK_STARTERS  # safety fallback
+    chosen = random.choice(candidates)
+
+    try:
+        with open(_LAST_HOOK_FILE, "w", encoding="utf-8") as f:
+            f.write(chosen)
+    except OSError:
+        pass
+
+    logger.info("Hook chosen: '%s' (previous was '%s')", chosen, last_hook or 'none')
+    return chosen
 
 def generate_post_with_ai(context_data: Dict[str, Any]) -> Optional[str]:
     """Use Groq/Mistral AI to draft a LinkedIn post based on context."""
@@ -478,10 +500,19 @@ def generate_post_with_ai(context_data: Dict[str, Any]) -> Optional[str]:
         if isinstance(context_data, dict) and context_data.get('type') == 'push':
             safe_repo = sanitize_for_prompt(context_data.get('repo', ''))
             safe_full_repo = sanitize_for_prompt(context_data.get('full_repo', ''))
+            push_count = context_data.get('commits', 0)
+            total = context_data.get('total_commits') or 'many'
+            # Describe the push naturally — never say "0 commits"
+            if push_count and push_count > 1:
+                push_desc = f"User just pushed {push_count} commits to repo '{safe_repo}'"
+            else:
+                push_desc = f"User just pushed new code to repo '{safe_repo}'"
             context_prompt = f"""
-GitHub Activity: User just pushed {context_data['commits']} commit(s) to repo '{safe_repo}' {context_data['date']}.
-The repo has {context_data.get('total_commits') or 'many'} total commits across its history.
+GitHub Activity: {push_desc} {context_data['date']}.
+The repo now has {total} total commits across its history.
 Repo: https://github.com/{safe_full_repo}
+
+IMPORTANT: Do NOT mention '0 commits'. Focus on the total commit count ({total}) and the repo's journey.
 
 WRITE A COMPLETE LINKEDIN POST - MUST INCLUDE EVERYTHING BELOW:
 
@@ -757,49 +788,85 @@ def strip_markdown(text: str) -> str:
 # --- IMAGE FUNCTIONS ---
 
 def _extract_image_keywords(post_content: str) -> str:
-    """Use AI to extract 2-3 specific visual keywords from post content for image search.
+    """Use AI to extract a dev-focused Unsplash search query from post content.
 
-    Falls back to basic keyword matching if AI is unavailable.
+    Returns a short search string guaranteed to produce software/dev imagery.
+    Falls back to curated dev-related queries if AI is unavailable.
     """
+    # Curated pool of guaranteed-good dev image queries
+    _DEV_IMAGE_QUERIES = [
+        'code on laptop screen dark',
+        'programmer typing code laptop',
+        'software developer computer screen',
+        'dark code editor terminal',
+        'laptop programming code',
+        'coding setup desk dark',
+        'web development code screen',
+        'developer workspace monitors code',
+        'github code laptop programming',
+        'python code terminal dark',
+        'javascript code editor screen',
+        'cybersecurity code dark screen',
+        'API code development laptop',
+        'software engineering workspace',
+        'coding on MacBook dark',
+    ]
+
     try:
         prompt = (
-            "Extract exactly 3 specific, visual, concrete keywords from this LinkedIn post "
-            "that would make a good Unsplash image search query. Return ONLY the keywords "
-            "separated by spaces, nothing else. Focus on the technical topic (e.g. 'python code terminal', "
-            "'API dashboard dark', 'cybersecurity lock screen'). Do NOT return generic words like "
-            "'technology' or 'innovation'.\n\nPost:\n" + post_content[:500]
+            "I need an Unsplash image search query for a LinkedIn post about software development.\n\n"
+            "Post excerpt:\n" + post_content[:400] + "\n\n"
+            "Return ONLY a 3-4 word Unsplash search query. "
+            "The query MUST be about software, coding, or computers. "
+            "Good examples: 'code laptop dark screen', 'developer typing code', 'programming terminal dark', "
+            "'software engineer workspace', 'code editor dark mode'.\n"
+            "Bad examples (NEVER use): 'pipeline factory', 'hardware circuit', 'industrial', 'microchip', "
+            "'oil', 'machinery', 'robot', 'abstract technology'.\n\n"
+            "Return ONLY the search query words, nothing else."
         )
         if groq_client:
             resp = groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
-                max_tokens=30,
+                temperature=0.4,
+                max_tokens=20,
             )
-            keywords = resp.choices[0].message.content.strip()
-            # Validate: should be 2-5 words, no sentences
+            keywords = resp.choices[0].message.content.strip().strip('"\'')
             words = keywords.split()
-            if 1 <= len(words) <= 6 and all(len(w) < 25 for w in words):
+            # Validate: must be 2-5 words, no long sentences, must contain a dev-ish word
+            dev_signals = {'code', 'coding', 'developer', 'programming', 'software', 'laptop',
+                           'terminal', 'screen', 'computer', 'workspace', 'editor', 'tech',
+                           'web', 'api', 'data', 'python', 'javascript', 'dark', 'typing',
+                           'keyboard', 'monitor', 'setup', 'github', 'devops', 'cloud'}
+            if (2 <= len(words) <= 5
+                    and all(len(w) < 20 for w in words)
+                    and any(w.lower() in dev_signals for w in words)):
+                logger.info("AI image query: '%s'", keywords)
                 return keywords
+            else:
+                logger.info("AI returned non-dev query '%s', using curated fallback", keywords)
     except Exception as e:
-        logger.debug("AI keyword extraction failed, using fallback: %s", e)
+        logger.debug("AI keyword extraction failed: %s", e)
 
-    # Fallback: basic keyword matching (same as before but simplified)
+    # Fallback: pick from curated list based on post content hints
     content_lower = post_content.lower()
-    topic_map = [
-        (['api', 'backend', 'database', 'server'], 'backend API code dark screen'),
-        (['security', 'devsecops', 'encryption'], 'cybersecurity lock code screen'),
-        (['fintech', 'finance', 'payment', 'banking'], 'fintech app dashboard'),
-        (['ai', 'machine learning', 'neural'], 'artificial intelligence code visualization'),
-        (['github', 'commit', 'repository', 'open source'], 'code on laptop screen github'),
-        (['learn', 'student', 'study', 'university'], 'student coding laptop'),
-        (['team', 'collaborate', 'community'], 'developers collaborating code'),
-        (['build', 'deploy', 'launch', 'ship'], 'software deployment terminal'),
+    topic_picks = [
+        (['security', 'devsecops', 'encrypt', 'auth'], 'cybersecurity code dark screen'),
+        (['api', 'backend', 'database', 'server', 'flask', 'django', 'fastapi'], 'API code development laptop'),
+        (['frontend', 'react', 'css', 'html', 'ui'], 'web development code screen'),
+        (['python', 'pip', 'django', 'flask'], 'python code terminal dark'),
+        (['javascript', 'typescript', 'node', 'react', 'next'], 'javascript code editor screen'),
+        (['github', 'commit', 'repo', 'open source', 'git'], 'github code laptop programming'),
+        (['deploy', 'docker', 'cloud', 'aws', 'devops'], 'software engineering workspace'),
     ]
-    for keywords, search_term in topic_map:
+    for keywords, query in topic_picks:
         if any(kw in content_lower for kw in keywords):
-            return search_term
-    return 'developer coding on dark terminal'
+            logger.info("Fallback image query (topic match): '%s'", query)
+            return query
+
+    choice = random.choice(_DEV_IMAGE_QUERIES)
+    logger.info("Fallback image query (random dev): '%s'", choice)
+    return choice
 
 
 def get_relevant_image(post_content: str) -> Optional[bytes]:
@@ -991,9 +1058,13 @@ def generate_tweet_with_ai(context_data: Dict[str, Any], linkedin_post: Optional
         safe_repo = sanitize_for_prompt(context_data.get('repo', ''))
         safe_full_repo = sanitize_for_prompt(context_data.get('full_repo', ''))
         repo_link = f"https://github.com/{safe_full_repo}" if safe_full_repo else ""
-        commits_text = context_data.get('commits', '')
+        commits_text = context_data.get('commits', 0)
         total_text = context_data.get('total_commits') or 'many'
-        topic_hint = f"Just pushed {commits_text} commit(s) to '{safe_repo}'. The repo has {total_text} total commits."
+        # Never say "0 commits" — phrase it naturally
+        if commits_text and int(commits_text) > 1:
+            topic_hint = f"Just pushed {commits_text} commits to '{safe_repo}'. The repo has {total_text} total commits."
+        else:
+            topic_hint = f"Just pushed new code to '{safe_repo}'. The repo has {total_text} total commits."
     elif isinstance(context_data, dict) and context_data.get('type') == 'pull_request':
         safe_repo = sanitize_for_prompt(context_data.get('repo', ''))
         safe_full_repo = sanitize_for_prompt(context_data.get('full_repo', ''))
@@ -1144,7 +1215,7 @@ def post_to_twitter(
 # --- MAIN BRAIN ---
 if __name__ == "__main__":
     # Set TEST_MODE = True to preview posts without posting to LinkedIn
-    TEST_MODE = False   # Change to False when you're ready to post live
+    TEST_MODE = True  # Change to False when you're ready to post live
     
     logger.info("LinkedIn Post Bot Starting...")
     if TEST_MODE:
