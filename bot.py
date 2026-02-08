@@ -653,61 +653,86 @@ def get_relevant_image(post_content):
         print("ℹ️  No Unsplash API key set, skipping image fetch")
         return None
     
-    # Analyze post content for better image matching (Creative Technologist theme)
+    # Analyze post content for better image matching (Backend/DevSecOps/Fintech/AI theme)
     content_lower = post_content.lower()
     
-    # Prioritize images with CODE VISIBLE on screens - more engaging and relevant
-    if any(word in content_lower for word in ['ui', 'ux', 'design', 'interface', 'beautiful', 'aesthetic']):
+    # Backend Engineering / APIs
+    if any(word in content_lower for word in ['api', 'backend', 'database', 'server', 'microservice', 'architecture']):
         search_term = random.choice([
-            'designer working on ui design screen',
-            'web design code on monitor',
-            'figma interface on laptop screen',
-            'graphic design software screen'
+            'server room data center',
+            'backend developer terminal code',
+            'database architecture diagram',
+            'api code on dark screen',
+            'cloud server infrastructure'
         ])
-    elif any(word in content_lower for word in ['react', 'javascript', 'frontend', 'web app', 'website']):
+    # Security / DevSecOps
+    elif any(word in content_lower for word in ['security', 'devsecops', 'secure', 'vulnerability', 'encryption', 'authentication']):
         search_term = random.choice([
-            'javascript code on laptop screen',
-            'react code visible on monitor',
-            'web developer coding javascript',
-            'frontend code on computer display'
+            'cybersecurity code monitor',
+            'security lock digital',
+            'encryption code screen',
+            'secure programming terminal',
+            'cyber security dashboard'
         ])
-    elif any(word in content_lower for word in ['github', 'commit', 'code', 'repository', 'project']):
+    # Fintech / Finance
+    elif any(word in content_lower for word in ['fintech', 'finance', 'payment', 'banking', 'transaction', 'money']):
+        search_term = random.choice([
+            'fintech dashboard mobile',
+            'financial technology interface',
+            'payment app development',
+            'banking software screen',
+            'digital finance code'
+        ])
+    # AI / Machine Learning
+    elif any(word in content_lower for word in ['ai', 'machine learning', 'ml', 'neural', 'model', 'data science']):
+        search_term = random.choice([
+            'artificial intelligence visualization',
+            'machine learning code python',
+            'neural network diagram',
+            'data science jupyter notebook',
+            'ai developer coding'
+        ])
+    # GitHub / Code / Project
+    elif any(word in content_lower for word in ['github', 'commit', 'repository', 'open source', 'git']):
         search_term = random.choice([
             'github code visible on screen',
             'programming code displayed on laptop',
             'developer viewing code on monitor',
-            'coding project on computer screen'
+            'coding project terminal'
         ])
-    elif any(word in content_lower for word in ['learn', 'student', 'study', 'journey', 'grow']):
+    # Learning / Student / UoPeople
+    elif any(word in content_lower for word in ['learn', 'student', 'study', 'uopeople', 'university', 'course']):
         search_term = random.choice([
-            'student coding with code on screen',
-            'learning programming laptop display',
-            'studying code on computer monitor',
-            'person learning to code display'
+            'student coding with laptop',
+            'online learning programming',
+            'studying computer science',
+            'developer learning new skills'
         ])
-    elif any(word in content_lower for word in ['team', 'collaborate', 'community', 'together']):
+    # Team / Collaboration
+    elif any(word in content_lower for word in ['team', 'collaborate', 'community', 'together', 'pair']):
         search_term = random.choice([
-            'developers working code on screens',
-            'team programming computers display',
-            'programmers pair coding screen',
-            'developers collaboration code visible'
+            'developers collaborating on code',
+            'tech team working together',
+            'programmers pair coding',
+            'software team meeting'
         ])
-    elif any(word in content_lower for word in ['build', 'create', 'creative', 'innovation']):
+    # Building / Creating
+    elif any(word in content_lower for word in ['build', 'create', 'ship', 'deploy', 'launch']):
         search_term = random.choice([
-            'developer building app code screen',
-            'programmer creating software display',
-            'coding website project screen',
-            'software development code visible'
+            'developer building app terminal',
+            'software deployment dashboard',
+            'programmer creating application',
+            'devops deployment screen'
         ])
     else:
-        # Default: ALWAYS prioritize code/work visible on screen
+        # Default: Backend/DevOps focused images
         search_term = random.choice([
-            'code on laptop screen close up',
-            'programming code visible display',
-            'developer working code monitor',
-            'software engineer coding screen',
-            'html css code on screen',
-            'python code on laptop display'
+            'backend code on dark terminal',
+            'developer coding python',
+            'software engineer at computer',
+            'programming code on screen',
+            'tech workspace laptop code',
+            'professional developer working'
         ])
     
     print(f"🖼️  Searching for image: '{search_term}'...")
