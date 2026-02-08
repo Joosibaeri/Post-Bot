@@ -12,6 +12,12 @@ try:
 except ImportError:
     Mistral = None
     MISTRAL_AVAILABLE = False
+try:
+    import tweepy
+    TWITTER_AVAILABLE = True
+except ImportError:
+    tweepy = None
+    TWITTER_AVAILABLE = False
 from urllib.parse import quote
 
 # Load .env file for local development
@@ -71,6 +77,12 @@ GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 MISTRAL_API_KEY = os.getenv('MISTRAL_API_KEY', '')
 UNSPLASH_ACCESS_KEY = os.getenv('UNSPLASH_ACCESS_KEY', '')  # Optional: for fetching images
 
+# Twitter/X API credentials
+TWITTER_API_KEY = os.getenv('TWITTER_API_KEY', '')
+TWITTER_API_SECRET = os.getenv('TWITTER_API_SECRET', '')
+TWITTER_ACCESS_TOKEN = os.getenv('TWITTER_ACCESS_TOKEN', '')
+TWITTER_ACCESS_TOKEN_SECRET = os.getenv('TWITTER_ACCESS_TOKEN_SECRET', '')
+
 # Validate credentials are set
 if not LINKEDIN_ACCESS_TOKEN or not LINKEDIN_USER_URN or not GROQ_API_KEY:
     print("⚠️  WARNING: Missing credentials!")
@@ -80,6 +92,20 @@ if not LINKEDIN_ACCESS_TOKEN or not LINKEDIN_USER_URN or not GROQ_API_KEY:
 # Initialize AI clients
 groq_client = Groq(api_key=GROQ_API_KEY)
 mistral_client = Mistral(api_key=MISTRAL_API_KEY) if MISTRAL_AVAILABLE and MISTRAL_API_KEY else None
+
+# Initialize Twitter client
+twitter_client = None
+if TWITTER_AVAILABLE and TWITTER_API_KEY and TWITTER_ACCESS_TOKEN:
+    try:
+        twitter_client = tweepy.Client(
+            consumer_key=TWITTER_API_KEY,
+            consumer_secret=TWITTER_API_SECRET,
+            access_token=TWITTER_ACCESS_TOKEN,
+            access_token_secret=TWITTER_ACCESS_TOKEN_SECRET
+        )
+        print("✅ Twitter client initialized")
+    except Exception as e:
+        print(f"⚠️  Twitter client initialization failed: {e}")
 
 # --- LINKEDIN PERSONA (AI Personality) ---
 LINKEDIN_PERSONA = """You are writing LinkedIn posts for Clifford (Darko) Opoku-Sarkodie.
@@ -913,10 +939,63 @@ def post_to_linkedin(message_text, image_asset_urn=None):
         print(f"\n❌ FAILED. {response.status_code}")
         print(response.text)
 
+def post_to_twitter(message_text, linkedin_post=None):
+    """Post to Twitter/X with a shortened version of the content
+    
+    Args:
+        message_text: The full post content (used if linkedin_post is None)
+        linkedin_post: Optional - the full LinkedIn post to create a tweet from
+    """
+    if not twitter_client:
+        print("⚠️  Twitter client not available - skipping Twitter post")
+        return None
+    
+    # Create a tweet-sized version (280 chars max)
+    # Remove hashtags and create a concise tweet
+    content = linkedin_post or message_text
+    
+    # Strip hashtags (they're too long for tweets)
+    lines = content.split('\n')
+    clean_lines = [line for line in lines if not line.strip().startswith('#')]
+    clean_content = '\n'.join(clean_lines).strip()
+    
+    # Get the first meaningful paragraph as the tweet
+    paragraphs = [p.strip() for p in clean_content.split('\n\n') if p.strip()]
+    
+    if paragraphs:
+        tweet_text = paragraphs[0]  # Use the hook/opening
+    else:
+        tweet_text = clean_content[:250]
+    
+    # Truncate to 270 chars to leave room for "..." if needed
+    if len(tweet_text) > 270:
+        tweet_text = tweet_text[:267] + "..."
+    
+    # Add a couple relevant hashtags back
+    hashtags = " #DevSecOps #Tech"
+    if len(tweet_text) + len(hashtags) <= 280:
+        tweet_text += hashtags
+    
+    print(f"🐦 Posting tweet: '{tweet_text[:50]}...'")
+    
+    try:
+        response = twitter_client.create_tweet(text=tweet_text)
+        if response and response.data:
+            tweet_id = response.data['id']
+            print(f"✅ Tweet posted! ID: {tweet_id}")
+            print(f"   https://twitter.com/i/status/{tweet_id}")
+            return tweet_id
+        else:
+            print("⚠️  Tweet response was empty")
+            return None
+    except Exception as e:
+        print(f"❌ Twitter post failed: {e}")
+        return None
+
 # --- MAIN BRAIN ---
 if __name__ == "__main__":
     # Set TEST_MODE = True to preview posts without posting to LinkedIn
-    TEST_MODE = False    # Change to False when you're ready to post live
+    TEST_MODE = True   # Change to False when you're ready to post live
     
     print("🤖 LinkedIn Post Bot Starting...\n")
     if TEST_MODE:
@@ -1017,6 +1096,9 @@ if __name__ == "__main__":
                         print("🎨 Post will include an image!")
 
                 post_to_linkedin(post_content, image_asset_urn)
+                # Also post to Twitter if configured
+                if twitter_client:
+                    post_to_twitter(post_content)
                 # Rate limit between posts to avoid spam
                 if idx < (len(posts_to_publish) - 1):
                     delay_minutes = POST_DELAY_SECONDS / 60
