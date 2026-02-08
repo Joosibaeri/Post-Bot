@@ -1,10 +1,14 @@
 import requests
 import json
+import logging
 import random
+import re
 import datetime
 import os
+import sys
 import time
-from dateutil import parser
+from typing import Any, Dict, List, Optional
+from dateutil import parser as dateutil_parser
 from groq import Groq
 try:
     from mistralai import Mistral
@@ -20,6 +24,14 @@ except ImportError:
     TWITTER_AVAILABLE = False
 from urllib.parse import quote
 
+# --- LOGGING SETUP ---
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("postbot")
+
 # Load .env file for local development
 try:
     from dotenv import load_dotenv
@@ -27,70 +39,45 @@ try:
 except ImportError:
     pass  # dotenv not installed, will use system environment variables
 
-# =============================================================================
-# SERVICE IMPORTS (Multi-tenant ready)
-# These services accept user context parameters for web app usage.
-# For CLI mode (this file), we read from env vars and pass as params.
-# =============================================================================
-try:
-    from services.github_activity import (
-        get_user_activity as service_get_user_activity,
-        get_github_stats as service_get_github_stats,
-        get_recent_repo_updates as service_get_recent_repo_updates
-    )
-    from services.ai_service import (
-        generate_post_with_ai as service_generate_post,
-        synthesize_hashtags as service_synthesize_hashtags
-    )
-    from services.linkedin_service import (
-        post_to_linkedin as service_post_to_linkedin,
-        upload_image_to_linkedin as service_upload_image
-    )
-    from services.image_service import (
-        get_relevant_image as service_get_relevant_image
-    )
-    SERVICES_AVAILABLE = True
-except ImportError as e:
-    print(f"⚠️  Services not available (running standalone): {e}")
-    SERVICES_AVAILABLE = False
-
 # --- CONFIGURATION (Load from environment variables for security) ---
-# For local testing: create a .env file or set these manually
-# For GitHub Actions: secrets are automatically injected
-#
-# CREDENTIAL CLASSIFICATION (CLI Bot Mode):
-# - LINKEDIN_ACCESS_TOKEN: (A) App-level secret - single-user CLI mode only
-# - LINKEDIN_USER_URN: (A) App-level - single-user CLI mode only
-# - GITHUB_USERNAME/TOKEN: (A) App-level - defaults for CLI, overridden by user settings in web
-# - GROQ_API_KEY: (A) App-level - falls back if no per-user key provided
-# - UNSPLASH_ACCESS_KEY: (A) App-level - optional image service
-#
-# NOTE: Web app uses per-user tokens stored in SQLite databases. These env vars
-# are primarily for standalone CLI bot operation or as fallbacks.
-LINKEDIN_ACCESS_TOKEN = os.getenv('LINKEDIN_ACCESS_TOKEN', '')
-LINKEDIN_USER_URN = os.getenv('LINKEDIN_USER_URN', '')
-GITHUB_USERNAME = os.getenv('MY_GITHUB_USERNAME') or os.getenv('GITHUB_USERNAME') or 'cliff-de-tech'
-GITHUB_TOKEN = os.getenv('MY_GITHUB_TOKEN') or os.getenv('GITHUB_TOKEN') or None
-MAX_POSTS = int(os.getenv('MAX_POSTS', '999'))  # Process ALL activities found (no limit)
-POST_DELAY_SECONDS = int(os.getenv('POST_DELAY_SECONDS', '3600'))  # 1 hour delay between posts
-GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
-MISTRAL_API_KEY = os.getenv('MISTRAL_API_KEY', '')
-UNSPLASH_ACCESS_KEY = os.getenv('UNSPLASH_ACCESS_KEY', '')  # Optional: for fetching images
+LINKEDIN_ACCESS_TOKEN: str = os.getenv('LINKEDIN_ACCESS_TOKEN', '')
+LINKEDIN_USER_URN: str = os.getenv('LINKEDIN_USER_URN', '')
+GITHUB_USERNAME: str = os.getenv('MY_GITHUB_USERNAME') or os.getenv('GITHUB_USERNAME') or ''
+GITHUB_TOKEN: Optional[str] = os.getenv('MY_GITHUB_TOKEN') or os.getenv('GITHUB_TOKEN') or None
+MAX_POSTS: int = int(os.getenv('MAX_POSTS', '999'))
+POST_DELAY_SECONDS: int = int(os.getenv('POST_DELAY_SECONDS', '3600'))
+GROQ_API_KEY: str = os.getenv('GROQ_API_KEY', '')
+MISTRAL_API_KEY: str = os.getenv('MISTRAL_API_KEY', '')
+UNSPLASH_ACCESS_KEY: str = os.getenv('UNSPLASH_ACCESS_KEY', '')
 
 # Twitter/X API credentials
-TWITTER_API_KEY = os.getenv('TWITTER_API_KEY', '')
-TWITTER_API_SECRET = os.getenv('TWITTER_API_SECRET', '')
-TWITTER_ACCESS_TOKEN = os.getenv('TWITTER_ACCESS_TOKEN', '')
-TWITTER_ACCESS_TOKEN_SECRET = os.getenv('TWITTER_ACCESS_TOKEN_SECRET', '')
+TWITTER_API_KEY: str = os.getenv('TWITTER_API_KEY', '')
+TWITTER_API_SECRET: str = os.getenv('TWITTER_API_SECRET', '')
+TWITTER_ACCESS_TOKEN: str = os.getenv('TWITTER_ACCESS_TOKEN', '')
+TWITTER_ACCESS_TOKEN_SECRET: str = os.getenv('TWITTER_ACCESS_TOKEN_SECRET', '')
 
-# Validate credentials are set
-if not LINKEDIN_ACCESS_TOKEN or not LINKEDIN_USER_URN or not GROQ_API_KEY:
-    print("⚠️  WARNING: Missing credentials!")
-    print("   Set environment variables: LINKEDIN_ACCESS_TOKEN, LINKEDIN_USER_URN, GROQ_API_KEY")
-    print("   Or create a .env file in the project directory")
 
-# Initialize AI clients
-groq_client = Groq(api_key=GROQ_API_KEY)
+def validate_credentials(*, require_linkedin: bool = True) -> bool:
+    """Validate that required credentials are set. Returns True if valid."""
+    missing: List[str] = []
+    if not GROQ_API_KEY:
+        missing.append("GROQ_API_KEY")
+    if not GITHUB_USERNAME:
+        missing.append("GITHUB_USERNAME (or MY_GITHUB_USERNAME)")
+    if require_linkedin:
+        if not LINKEDIN_ACCESS_TOKEN:
+            missing.append("LINKEDIN_ACCESS_TOKEN")
+        if not LINKEDIN_USER_URN:
+            missing.append("LINKEDIN_USER_URN")
+    if missing:
+        logger.error("Missing required credentials: %s", ", ".join(missing))
+        logger.error("Set environment variables or create a .env file in the project directory")
+        return False
+    return True
+
+
+# Initialize AI clients (lazy — checked at runtime)
+groq_client: Optional[Groq] = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 mistral_client = Mistral(api_key=MISTRAL_API_KEY) if MISTRAL_AVAILABLE and MISTRAL_API_KEY else None
 
 # Initialize Twitter client
@@ -103,9 +90,118 @@ if TWITTER_AVAILABLE and TWITTER_API_KEY and TWITTER_ACCESS_TOKEN:
             access_token=TWITTER_ACCESS_TOKEN,
             access_token_secret=TWITTER_ACCESS_TOKEN_SECRET
         )
-        print("✅ Twitter client initialized")
+        logger.info("Twitter client initialized")
     except Exception as e:
-        print(f"⚠️  Twitter client initialization failed: {e}")
+        logger.warning("Twitter client initialization failed: %s", e)
+
+
+# =============================================================================
+# SHARED HELPERS
+# =============================================================================
+
+def _github_headers() -> Dict[str, str]:
+    """Return auth headers for GitHub API calls."""
+    headers: Dict[str, str] = {}
+    if GITHUB_TOKEN:
+        headers['Authorization'] = f'token {GITHUB_TOKEN}'
+    return headers
+
+
+def _retry_request(
+    method: str,
+    url: str,
+    *,
+    retries: int = 3,
+    backoff: float = 1.0,
+    timeout: int = 10,
+    **kwargs,
+) -> Optional[requests.Response]:
+    """Make an HTTP request with automatic retries on transient failures.
+
+    Retries on connection errors, timeouts, and 5xx status codes.
+    Returns the Response on success, or None after exhausting retries.
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            resp = requests.request(method, url, timeout=timeout, **kwargs)
+            if resp.status_code < 500:
+                return resp  # Success or client error — don't retry
+            logger.warning("Server error %d for %s (attempt %d/%d)", resp.status_code, url, attempt, retries)
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            logger.warning("Request failed for %s: %s (attempt %d/%d)", url, exc, attempt, retries)
+        if attempt < retries:
+            time.sleep(backoff * attempt)
+    logger.error("All %d retries exhausted for %s", retries, url)
+    return None
+
+
+def _github_get(url: str, **kwargs) -> Optional[requests.Response]:
+    """GET from GitHub API with auth headers, token-fallback, and retry."""
+    headers = _github_headers()
+    resp = _retry_request("GET", url, headers=headers, **kwargs)
+    # If token gives 401, retry without it (public API)
+    if resp is not None and resp.status_code == 401 and headers.get('Authorization'):
+        logger.warning("GitHub token unauthorized — retrying without token")
+        resp = _retry_request("GET", url, **kwargs)
+    return resp
+
+
+def humanize_delta(ts: datetime.datetime, now_utc: Optional[datetime.datetime] = None) -> str:
+    """Return a human-readable time string like '3 hours ago'."""
+    if now_utc is None:
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+    delta = now_utc - ts
+    total_seconds = delta.total_seconds()
+    hours = int(total_seconds // 3600)
+    if hours < 1:
+        minutes = max(1, int(total_seconds // 60))
+        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+    return f"{hours} hour{'s' if hours != 1 else ''} ago"
+
+
+def sanitize_for_prompt(text: str) -> str:
+    """Sanitize user-supplied text before embedding in an AI prompt.
+
+    Strips characters that could be used for prompt injection.
+    """
+    # Allow only alphanumeric, hyphens, underscores, dots, slashes, spaces
+    return re.sub(r'[^\w\s\-./]', '', text)
+
+
+def _get_repo_total_commits(full_repo: str) -> int:
+    """Fetch total commit count for a repository using the GitHub API.
+
+    Uses the Contributors endpoint (returns commit counts per contributor)
+    and sums them up. Returns 0 if unavailable.
+    """
+    url = f"https://api.github.com/repos/{full_repo}/contributors?per_page=1&anon=true"
+    resp = _github_get(url)
+    if resp is None:
+        return 0
+    # GitHub returns total count in the Link header's last page number
+    # e.g. <...?page=5>; rel="last" means 5 pages of contributors
+    # Faster approach: use the Commits search or repo stats
+    # Best approach: use the commit count from repo endpoint
+    stats_url = f"https://api.github.com/repos/{full_repo}"
+    stats_resp = _github_get(stats_url)
+    if stats_resp is not None and stats_resp.status_code == 200:
+        # The repo endpoint doesn't directly give commit count,
+        # but we can get it from the commits endpoint using pagination trick
+        pass
+    # Use the commits endpoint with per_page=1 and read the last page from Link header
+    commits_url = f"https://api.github.com/repos/{full_repo}/commits?per_page=1"
+    commits_resp = _github_get(commits_url)
+    if commits_resp is None or commits_resp.status_code != 200:
+        return 0
+    link_header = commits_resp.headers.get('Link', '')
+    # Parse: <https://...?per_page=1&page=139>; rel="last"
+    import re as _re
+    match = _re.search(r'[&?]page=(\d+)>; rel="last"', link_header)
+    if match:
+        return int(match.group(1))
+    # If no Link header, there's only 1 page = few commits
+    data = commits_resp.json()
+    return len(data) if isinstance(data, list) else 0
 
 # --- LINKEDIN PERSONA (AI Personality) ---
 LINKEDIN_PERSONA = """You are writing LinkedIn posts for Clifford (Darko) Opoku-Sarkodie.
@@ -192,199 +288,158 @@ INSTEAD: Use specific, concrete language. Show enthusiasm through details, not b
 """
 
 # --- SENSOR 2: GITHUB STATS CHECKER ---
-def get_github_stats():
-    """Fetch GitHub user stats for inspirational posts"""
-    print(f"📈 Fetching GitHub stats for {GITHUB_USERNAME}...")
-    try:
-        url = f"https://api.github.com/users/{GITHUB_USERNAME}"
-        headers = {}
-        if GITHUB_TOKEN:
-            headers['Authorization'] = f'token {GITHUB_TOKEN}'
-        response = requests.get(url, headers=headers, timeout=10)
-        print(f"🔎 GitHub API: GET {url} -> {response.status_code}")
-        if response.status_code == 401 and headers.get('Authorization'):
-            print("⚠️  GitHub token unauthorized — retrying without token (will use public API)")
-            response = requests.get(url, timeout=10)
-            print(f"🔎 GitHub API (no auth): GET {url} -> {response.status_code}")
-
-        if response.status_code != 200:
-            print("⚠️  Could not fetch GitHub user info.")
-            return None
-
-        data = response.json()
-        return {
-            'public_repos': data.get('public_repos', 0),
-            'followers': data.get('followers', 0),
-            'location': data.get('location'),
-            'html_url': data.get('html_url'),
-            'login': data.get('login')
-        }
-    except Exception as e:
-        print(f"⚠️  Error fetching GitHub stats: {e}")
+def get_github_stats() -> Optional[Dict[str, Any]]:
+    """Fetch GitHub user stats for inspirational posts."""
+    logger.info("Fetching GitHub stats for %s...", GITHUB_USERNAME)
+    url = f"https://api.github.com/users/{GITHUB_USERNAME}"
+    resp = _github_get(url)
+    if resp is None or resp.status_code != 200:
+        logger.warning("Could not fetch GitHub user info.")
         return None
+    data = resp.json()
+    return {
+        'public_repos': data.get('public_repos', 0),
+        'followers': data.get('followers', 0),
+        'location': data.get('location'),
+        'html_url': data.get('html_url'),
+        'login': data.get('login'),
+    }
 
 
-def get_latest_github_activity(max_items: int = None):
-    """Fetch recent GitHub user events (last 24h) and return a list of structured activities.
+def get_latest_github_activity(max_items: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Fetch recent GitHub user events (last 24h).
 
-    Returns a list (possibly empty). Each item is a dict with keys: type, repo, full_repo, date, and optional commits/action.
+    Returns a list (possibly empty). Each item has keys: type, repo, full_repo, date,
+    and optional commits/action.
     """
     if max_items is None:
         max_items = MAX_POSTS
 
-    print(f"🕵️ Checking GitHub activity for {GITHUB_USERNAME} (up to {max_items})...")
-    activities = []
-    try:
-        url = f"https://api.github.com/users/{GITHUB_USERNAME}/events"
-        headers = {}
-        if GITHUB_TOKEN:
-            headers['Authorization'] = f'token {GITHUB_TOKEN}'
-        response = requests.get(url, headers=headers, timeout=10)
-        print(f"🔎 GitHub API: GET {url} -> {response.status_code}")
-        if response.status_code == 401 and headers.get('Authorization'):
-            print("⚠️  GitHub token unauthorized — retrying without token (will use public API)")
-            response = requests.get(url, timeout=10)
-            print(f"🔎 GitHub API (no auth): GET {url} -> {response.status_code}")
+    logger.info("Checking GitHub activity for %s (up to %d)...", GITHUB_USERNAME, max_items)
+    activities: List[Dict[str, Any]] = []
 
-        if response.status_code != 200:
-            print("No GitHub activity found or API error.")
-            return activities
-
-        events = response.json()
-        now_utc = datetime.datetime.now(datetime.timezone.utc)
-        cutoff = now_utc - datetime.timedelta(hours=24)
-
-        def humanize_delta(ts: datetime.datetime) -> str:
-            delta = now_utc - ts
-            hours = int(delta.total_seconds() // 3600)
-            if hours < 1:
-                minutes = max(1, int(delta.total_seconds() // 60))
-                return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-            return f"{hours} hour{'s' if hours != 1 else ''} ago"
-
-        for event in events:
-            if len(activities) >= max_items:
-                break
-            try:
-                event_time = parser.isoparse(event.get('created_at'))
-            except Exception:
-                continue
-            if event_time.tzinfo is None:
-                event_time = event_time.replace(tzinfo=datetime.timezone.utc)
-            if event_time < cutoff:
-                continue
-            when_text = humanize_delta(event_time)
-
-            etype = event.get('type')
-            repo_name = event.get('repo', {}).get('name', '')
-            clean_repo_name = repo_name.split('/')[-1] if repo_name else ''
-
-            if etype == 'PushEvent':
-                commit_count = len(event.get('payload', {}).get('commits', []))
-                activities.append({
-                    'type': 'push',
-                    'repo': clean_repo_name,
-                    'full_repo': repo_name,
-                    'commits': commit_count,
-                    'date': when_text
-                })
-
-            elif etype == 'PullRequestEvent':
-                action = event.get('payload', {}).get('action', 'updated')
-                activities.append({
-                    'type': 'pull_request',
-                    'action': action,
-                    'repo': clean_repo_name,
-                    'full_repo': repo_name,
-                    'date': when_text
-                })
-
-            elif etype == 'CreateEvent':
-                ref_type = event.get('payload', {}).get('ref_type', 'repo')
-                if ref_type == 'repository':
-                    activities.append({
-                        'type': 'new_repo',
-                        'repo': clean_repo_name,
-                        'full_repo': repo_name,
-                        'date': when_text
-                    })
-
-        if not activities:
-            print("No GitHub activity found in the last 24 hours.")
-        else:
-            print(f"Found {len(activities)} recent event(s)")
+    url = f"https://api.github.com/users/{GITHUB_USERNAME}/events"
+    resp = _github_get(url)
+    if resp is None or resp.status_code != 200:
+        logger.info("No GitHub activity found or API error.")
         return activities
-    except Exception as e:
-        print(f"⚠️  Error checking GitHub activity: {e}")
-        return []
+
+    events = resp.json()
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    cutoff = now_utc - datetime.timedelta(hours=24)
+
+    for event in events:
+        if len(activities) >= max_items:
+            break
+        try:
+            event_time = dateutil_parser.isoparse(event.get('created_at'))
+        except Exception:
+            continue
+        if event_time.tzinfo is None:
+            event_time = event_time.replace(tzinfo=datetime.timezone.utc)
+        if event_time < cutoff:
+            continue
+        when_text = humanize_delta(event_time, now_utc)
+
+        etype = event.get('type')
+        repo_name = event.get('repo', {}).get('name', '')
+        clean_repo_name = repo_name.split('/')[-1] if repo_name else ''
+
+        if etype == 'PushEvent':
+            commit_count = len(event.get('payload', {}).get('commits', []))
+            total_commits = _get_repo_total_commits(repo_name)
+            activities.append({
+                'type': 'push',
+                'repo': clean_repo_name,
+                'full_repo': repo_name,
+                'commits': commit_count,
+                'total_commits': total_commits,
+                'date': when_text,
+            })
+        elif etype == 'PullRequestEvent':
+            action = event.get('payload', {}).get('action', 'updated')
+            activities.append({
+                'type': 'pull_request',
+                'action': action,
+                'repo': clean_repo_name,
+                'full_repo': repo_name,
+                'date': when_text,
+            })
+        elif etype == 'CreateEvent':
+            ref_type = event.get('payload', {}).get('ref_type', 'repo')
+            if ref_type == 'repository':
+                activities.append({
+                    'type': 'new_repo',
+                    'repo': clean_repo_name,
+                    'full_repo': repo_name,
+                    'date': when_text,
+                })
+
+    if not activities:
+        logger.info("No GitHub activity found in the last 24 hours.")
+    else:
+        logger.info("Found %d recent event(s)", len(activities))
+    return activities
 
 
-def get_recent_repo_updates():
-    """Scan user's repositories and return a recent update (pushed_at) within 24h."""
-    print(f"🔎 Scanning repos for recent pushes for {GITHUB_USERNAME}...")
-    try:
-        url = f"https://api.github.com/users/{GITHUB_USERNAME}/repos?per_page=100&type=owner"
-        headers = {}
-        if GITHUB_TOKEN:
-            headers['Authorization'] = f'token {GITHUB_TOKEN}'
-        resp = requests.get(url, headers=headers, timeout=10)
-        print(f"🔎 GitHub API: GET {url} -> {resp.status_code}")
-        if resp.status_code != 200:
-            return None
-
-        repos = resp.json()
-        now_utc = datetime.datetime.now(datetime.timezone.utc)
-        cutoff = now_utc - datetime.timedelta(hours=24)
-
-        recent = []
-        for r in repos:
-            pushed = r.get('pushed_at')
-            if not pushed:
-                continue
-            pushed_dt = parser.isoparse(pushed)
-            if pushed_dt.tzinfo is None:
-                pushed_dt = pushed_dt.replace(tzinfo=datetime.timezone.utc)
-            if pushed_dt >= cutoff:
-                repo_name = r.get('name')
-                full_repo = r.get('full_name')
-                commit_url = f"https://api.github.com/repos/{full_repo}/commits?per_page=1"
-                c_resp = requests.get(commit_url, headers=headers, timeout=10)
-                if c_resp.status_code == 200:
-                    commits = c_resp.json()
-                    if commits:
-                        commit = commits[0]
-                        commit_time = commit.get('commit', {}).get('author', {}).get('date')
-                        commit_dt = parser.isoparse(commit_time)
-                        if commit_dt.tzinfo is None:
-                            commit_dt = commit_dt.replace(tzinfo=datetime.timezone.utc)
-                        delta = now_utc - commit_dt
-                        hours = int(delta.total_seconds() // 3600)
-                        when_text = f"{hours} hour{'s' if hours != 1 else ''} ago" if hours >= 1 else f"{max(1,int(delta.total_seconds()//60))} minutes ago"
-                        recent.append({
-                            'type': 'push',
-                            'repo': repo_name,
-                            'full_repo': full_repo,
-                            'commits': 1,
-                            'date': when_text
-                        })
-                else:
-                    delta = now_utc - pushed_dt
-                    hours = int(delta.total_seconds() // 3600)
-                    when_text = f"{hours} hour{'s' if hours != 1 else ''} ago" if hours >= 1 else f"{max(1,int(delta.total_seconds()//60))} minutes ago"
-                    recent.append({
-                        'type': 'push',
-                        'repo': repo_name,
-                        'full_repo': full_repo,
-                        'commits': 1,
-                        'date': when_text
-                    })
-
-        # Sort by pushed_at descending and return all
-        recent_sorted = sorted(recent, key=lambda x: x.get('date'), reverse=False)
-        return recent  # Return all activities found
-    except Exception as e:
-        print(f"⚠️  Error scanning repos: {e}")
+def get_recent_repo_updates() -> Optional[List[Dict[str, Any]]]:
+    """Scan user's repositories and return recent updates (pushed_at) within 24h."""
+    logger.info("Scanning repos for recent pushes for %s...", GITHUB_USERNAME)
+    url = f"https://api.github.com/users/{GITHUB_USERNAME}/repos?per_page=100&type=owner"
+    resp = _github_get(url)
+    if resp is None or resp.status_code != 200:
         return None
+
+    repos = resp.json()
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    cutoff = now_utc - datetime.timedelta(hours=24)
+
+    recent: List[Dict[str, Any]] = []
+    for r in repos:
+        pushed = r.get('pushed_at')
+        if not pushed:
+            continue
+        pushed_dt = dateutil_parser.isoparse(pushed)
+        if pushed_dt.tzinfo is None:
+            pushed_dt = pushed_dt.replace(tzinfo=datetime.timezone.utc)
+        if pushed_dt < cutoff:
+            continue
+
+        repo_name = r.get('name')
+        full_repo = r.get('full_name')
+        # Try to get the actual latest commit time
+        commit_url = f"https://api.github.com/repos/{full_repo}/commits?per_page=1"
+        c_resp = _github_get(commit_url)
+        if c_resp is not None and c_resp.status_code == 200:
+            commits = c_resp.json()
+            if commits:
+                commit_time = commits[0].get('commit', {}).get('author', {}).get('date')
+                commit_dt = dateutil_parser.isoparse(commit_time)
+                if commit_dt.tzinfo is None:
+                    commit_dt = commit_dt.replace(tzinfo=datetime.timezone.utc)
+                when_text = humanize_delta(commit_dt, now_utc)
+                total_commits = _get_repo_total_commits(full_repo)
+                recent.append({
+                    'type': 'push', 'repo': repo_name, 'full_repo': full_repo,
+                    'commits': 1, 'total_commits': total_commits,
+                    'date': when_text, '_ts': commit_dt,
+                })
+                continue
+        # Fallback: use pushed_at time
+        when_text = humanize_delta(pushed_dt, now_utc)
+        total_commits = _get_repo_total_commits(full_repo)
+        recent.append({
+            'type': 'push', 'repo': repo_name, 'full_repo': full_repo,
+            'commits': 1, 'total_commits': total_commits,
+            'date': when_text, '_ts': pushed_dt,
+        })
+
+    # Sort by actual timestamp descending (most recent first)
+    recent.sort(key=lambda x: x.get('_ts', datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)), reverse=True)
+    # Remove internal _ts key before returning
+    for item in recent:
+        item.pop('_ts', None)
+    return recent or None
 
 # --- AI BRAIN: GENERATE DYNAMIC CONTENT WITH GROQ/MISTRAL ---
 # Hook starters for guaranteed variety
@@ -411,23 +466,27 @@ HOOK_STARTERS = [
     "You know that feeling when",
 ]
 
-def get_random_hook():
-    """Get a random hook starter for variety"""
+def get_random_hook() -> str:
+    """Get a random hook starter for variety."""
     return random.choice(HOOK_STARTERS)
 
-def generate_post_with_ai(context_data):
-    """Use Groq/Mistral AI to draft a LinkedIn post based on context"""
-    print("🧠 AI is thinking and drafting your post...")
+def generate_post_with_ai(context_data: Dict[str, Any]) -> Optional[str]:
+    """Use Groq/Mistral AI to draft a LinkedIn post based on context."""
+    logger.info("AI is thinking and drafting your post...")
     
     try:
         # Get a random hook for this post
         random_hook = get_random_hook()
         
         # Build context prompt based on what triggered the post
+        # Sanitize any user-supplied values before embedding in the prompt
         if isinstance(context_data, dict) and context_data.get('type') == 'push':
+            safe_repo = sanitize_for_prompt(context_data.get('repo', ''))
+            safe_full_repo = sanitize_for_prompt(context_data.get('full_repo', ''))
             context_prompt = f"""
-GitHub Activity: User just pushed {context_data['commits']} commit(s) to repo '{context_data['repo']}' {context_data['date']}.
-Repo: https://github.com/{context_data['full_repo']}
+GitHub Activity: User just pushed {context_data['commits']} commit(s) to repo '{safe_repo}' {context_data['date']}.
+The repo has {context_data.get('total_commits', 'many')} total commits.
+Repo: https://github.com/{safe_full_repo}
 
 WRITE A COMPLETE LINKEDIN POST - MUST INCLUDE EVERYTHING BELOW:
 
@@ -443,10 +502,10 @@ Structure (250-350 words total):
 CRITICAL REQUIREMENTS:
 - Write the COMPLETE post - output MUST end with the hashtags line
 - POST MUST END with a question followed by a blank line then hashtags
-- Include @mentions naturally in the text when relevant (e.g., shoutout collaborators, tag tech communities)
+- Do NOT include @mentions or @tags of any kind
 - MANDATORY FINAL LINE: exactly 15-20 diverse hashtags covering topic, tech stack, community, career
   (example: #WebDev #JavaScript #React #NodeJS #Code #Design #Tech #Frontend #Backend #UI #UX #Learning #DevCommunity #Growth #Innovation #100DaysOfCode #Coding #Programming #TechCareer #OpenSource)
-- Explicitly include this repo link: https://github.com/{context_data['full_repo']}
+- Explicitly include this repo link: https://github.com/{safe_full_repo}
 - Include 3-4 emojis naturally: 🎨 🚀 💡 ✨
 - Length: 250-350 words TOTAL including hashtags
 - DO NOT stop mid-sentence or before hashtags
@@ -455,9 +514,11 @@ CRITICAL REQUIREMENTS:
 """
         
         elif isinstance(context_data, dict) and context_data.get('type') == 'pull_request':
+            safe_repo = sanitize_for_prompt(context_data.get('repo', ''))
+            safe_full_repo = sanitize_for_prompt(context_data.get('full_repo', ''))
             context_prompt = f"""
-GitHub Activity: User just {context_data['action'].upper()} a pull request on '{context_data['repo']}' {context_data['date']}.
-Repo: https://github.com/{context_data['full_repo']}
+GitHub Activity: User just {context_data['action'].upper()} a pull request on '{safe_repo}' {context_data['date']}.
+Repo: https://github.com/{safe_full_repo}
 
 WRITE A COMPLETE LINKEDIN POST - MUST INCLUDE EVERYTHING BELOW:
 
@@ -471,7 +532,7 @@ Structure (200-300 words total):
 Requirements:
 - Write the FULL post, do NOT cut off early
 - ALWAYS end with hashtags
-- Explicitly include this repo link once in the body: https://github.com/{context_data['full_repo']}
+- Explicitly include this repo link once in the body: https://github.com/{safe_full_repo}
 - Vary the hook/story wording each run; avoid repeating phrasing or metaphors from prior posts
 - Include 3-4 emojis naturally: 🎨 🚀 💡 ✨
 - Make it conversational and authentic
@@ -481,9 +542,11 @@ Requirements:
 """
         
         elif isinstance(context_data, dict) and context_data.get('type') == 'new_repo':
+            safe_repo = sanitize_for_prompt(context_data.get('repo', ''))
+            safe_full_repo = sanitize_for_prompt(context_data.get('full_repo', ''))
             context_prompt = f"""
-GitHub Activity: User just created a new repository called '{context_data['repo']}' {context_data['date']}.
-Repo: https://github.com/{context_data['full_repo']}
+GitHub Activity: User just created a new repository called '{safe_repo}' {context_data['date']}.
+Repo: https://github.com/{safe_full_repo}
 
 WRITE A COMPLETE LINKEDIN POST - MUST INCLUDE EVERYTHING BELOW:
 
@@ -497,7 +560,7 @@ Structure (200-300 words total):
 Requirements:
 - Write the FULL post, do NOT cut off early
 - ALWAYS end with hashtags
-- Explicitly include this repo link once in the body: https://github.com/{context_data['full_repo']}
+- Explicitly include this repo link once in the body: https://github.com/{safe_full_repo}
 - Vary the hook/story wording each run; avoid repeating phrasing or metaphors from prior posts
 - Include 3-4 emojis naturally: 🎨 🚀 💡 ✨
 - Make it conversational and authentic
@@ -552,21 +615,16 @@ Requirements:
 """
         
         # Randomly select between available AI models for variety
-        system_message = "You are a LinkedIn post writer. You MUST complete every post you write. Every post MUST end with exactly 8-12 hashtags on the final line. Include @mentions naturally when relevant. NEVER stop mid-sentence or before adding the hashtags."
+        system_message = "You are a LinkedIn post writer. You MUST complete every post you write. Every post MUST end with exactly 8-12 hashtags on the final line. NEVER stop mid-sentence or before adding the hashtags. NEVER use markdown formatting — no **bold**, *italic*, ## headers, bullet points, or code blocks. Write plain text only. NEVER include @mentions — no @username or @company tags."
         
-        available_models = []
-        if mistral_client:
-            available_models.append("mistral")  # Mistral first (preferred)
-        available_models.append("groq")  # Groq as backup
-        
-        # Prefer Mistral (70%) but still switch to Groq (30%) for variety
+        # Select AI model — prefer Mistral (70%) for variety
         if mistral_client and random.random() < 0.7:
             selected_model = "mistral"
         else:
             selected_model = "groq"
         
         if selected_model == "mistral" and mistral_client:
-            print(f"🌀 Using Mistral AI for this post...")
+            logger.info("Using Mistral AI for this post...")
             response = mistral_client.chat.complete(
                 model="mistral-large-latest",
                 messages=[
@@ -578,7 +636,7 @@ Requirements:
             )
             post_content = response.choices[0].message.content.strip()
         else:
-            print(f"⚡ Using Groq (Llama 3.3) for this post...")
+            logger.info("Using Groq (Llama 3.3) for this post...")
             response = groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
@@ -598,9 +656,9 @@ Requirements:
             if not lines:
                 return False
             last = lines[-1]
-            # MUST have hashtags line with 8-12 hashtags
+            # MUST have hashtags line with 8-20 hashtags
             tags = [w for w in last.split() if w.startswith('#')]
-            if 8 <= len(tags) <= 12:
+            if 8 <= len(tags) <= 20:
                 return True
             # If no hashtags, it's incomplete
             return False
@@ -635,7 +693,7 @@ Requirements:
                             "then on a NEW LINE add exactly 8-12 relevant diverse hashtags.\n\nPOST SO FAR:\n" + current_text
                         )
                     
-                    resp = client.chat.completions.create(
+                    resp = groq_client.chat.completions.create(
                         model="llama-3.3-70b-versatile",
                         messages=[{"role": "user", "content": cont_prompt}],
                         temperature=0.6,
@@ -654,159 +712,139 @@ Requirements:
                     if _looks_complete(current_text):
                         return current_text
                 except Exception as e:
-                    print(f"⚠️  Error attempting to finish truncated post: {e}")
+                    logger.warning("Error attempting to finish truncated post: %s", e)
                     continue
             # Last resort: force add synthesized hashtags
-            print("⚠️  Using fallback hashtags generator...")
+            logger.warning("Using fallback hashtags generator...")
             if not current_text.strip().endswith(('.', '!', '?')):
                 current_text = current_text.rstrip() + '.'
-            # Use our synthesized hashtags
-            from bot import synthesize_hashtags
+            # Use our synthesized hashtags (same module, no import needed)
             hashtags_line = synthesize_hashtags(current_text, desired=10)
             current_text = current_text.rstrip() + "\n\n" + hashtags_line
             return current_text
 
         if not _looks_complete(post_content):
-            print("⚠️  Generated post appears incomplete — requesting continuation...")
+            logger.warning("Generated post appears incomplete — requesting continuation...")
             post_content = _attempt_finish(post_content, tries=2)
+
+        # Strip any markdown formatting the AI may have included
+        post_content = strip_markdown(post_content)
 
         return post_content
         
     except Exception as e:
-        print(f"⚠️  Error generating post with Groq: {e}")
-        print("💡 Tip: Make sure your Groq API key is valid and set in GROQ_API_KEY")
+        logger.error("Error generating post with AI: %s", e)
+        logger.info("Tip: Make sure your API keys are valid (GROQ_API_KEY / MISTRAL_API_KEY)")
         return None
+
+# --- POST CLEANUP ---
+
+def strip_markdown(text: str) -> str:
+    """Remove markdown formatting that AI models may include.
+    LinkedIn renders plain text, so **bold** would appear literally."""
+    # Remove bold: **text** or __text__
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    text = re.sub(r'__(.+?)__', r'\1', text)
+    # Remove italic: *text* or _text_ (but not inside hashtags or URLs)
+    text = re.sub(r'(?<!\w)\*(.+?)\*(?!\w)', r'\1', text)
+    # Remove headers: ## Header
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    # Remove code blocks: ```code```
+    text = re.sub(r'```[\s\S]*?```', '', text)
+    # Remove inline code: `code`
+    text = re.sub(r'`(.+?)`', r'\1', text)
+    # Remove bullet points: - item or * item at line start
+    text = re.sub(r'^[\-\*]\s+', '', text, flags=re.MULTILINE)
+    # Remove numbered list markers: 1. item
+    text = re.sub(r'^\d+\.\s+', '', text, flags=re.MULTILINE)
+    return text.strip()
 
 # --- IMAGE FUNCTIONS ---
-def get_relevant_image(post_content):
-    """Fetch a relevant image from Unsplash based on post content"""
+
+def _extract_image_keywords(post_content: str) -> str:
+    """Use AI to extract 2-3 specific visual keywords from post content for image search.
+
+    Falls back to basic keyword matching if AI is unavailable.
+    """
+    try:
+        prompt = (
+            "Extract exactly 3 specific, visual, concrete keywords from this LinkedIn post "
+            "that would make a good Unsplash image search query. Return ONLY the keywords "
+            "separated by spaces, nothing else. Focus on the technical topic (e.g. 'python code terminal', "
+            "'API dashboard dark', 'cybersecurity lock screen'). Do NOT return generic words like "
+            "'technology' or 'innovation'.\n\nPost:\n" + post_content[:500]
+        )
+        if groq_client:
+            resp = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=30,
+            )
+            keywords = resp.choices[0].message.content.strip()
+            # Validate: should be 2-5 words, no sentences
+            words = keywords.split()
+            if 1 <= len(words) <= 6 and all(len(w) < 25 for w in words):
+                return keywords
+    except Exception as e:
+        logger.debug("AI keyword extraction failed, using fallback: %s", e)
+
+    # Fallback: basic keyword matching (same as before but simplified)
+    content_lower = post_content.lower()
+    topic_map = [
+        (['api', 'backend', 'database', 'server'], 'backend API code dark screen'),
+        (['security', 'devsecops', 'encryption'], 'cybersecurity lock code screen'),
+        (['fintech', 'finance', 'payment', 'banking'], 'fintech app dashboard'),
+        (['ai', 'machine learning', 'neural'], 'artificial intelligence code visualization'),
+        (['github', 'commit', 'repository', 'open source'], 'code on laptop screen github'),
+        (['learn', 'student', 'study', 'university'], 'student coding laptop'),
+        (['team', 'collaborate', 'community'], 'developers collaborating code'),
+        (['build', 'deploy', 'launch', 'ship'], 'software deployment terminal'),
+    ]
+    for keywords, search_term in topic_map:
+        if any(kw in content_lower for kw in keywords):
+            return search_term
+    return 'developer coding on dark terminal'
+
+
+def get_relevant_image(post_content: str) -> Optional[bytes]:
+    """Fetch a relevant image from Unsplash based on post content."""
     if not UNSPLASH_ACCESS_KEY:
-        print("ℹ️  No Unsplash API key set, skipping image fetch")
+        logger.info("No Unsplash API key set, skipping image fetch")
         return None
     
-    # Analyze post content for better image matching (Backend/DevSecOps/Fintech/AI theme)
-    content_lower = post_content.lower()
+    search_term = _extract_image_keywords(post_content)
     
-    # Backend Engineering / APIs
-    if any(word in content_lower for word in ['api', 'backend', 'database', 'server', 'microservice', 'architecture']):
-        search_term = random.choice([
-            'server room data center',
-            'backend developer terminal code',
-            'database architecture diagram',
-            'api code on dark screen',
-            'cloud server infrastructure'
-        ])
-    # Security / DevSecOps
-    elif any(word in content_lower for word in ['security', 'devsecops', 'secure', 'vulnerability', 'encryption', 'authentication']):
-        search_term = random.choice([
-            'cybersecurity code monitor',
-            'security lock digital',
-            'encryption code screen',
-            'secure programming terminal',
-            'cyber security dashboard'
-        ])
-    # Fintech / Finance
-    elif any(word in content_lower for word in ['fintech', 'finance', 'payment', 'banking', 'transaction', 'money']):
-        search_term = random.choice([
-            'fintech dashboard mobile',
-            'financial technology interface',
-            'payment app development',
-            'banking software screen',
-            'digital finance code'
-        ])
-    # AI / Machine Learning
-    elif any(word in content_lower for word in ['ai', 'machine learning', 'ml', 'neural', 'model', 'data science']):
-        search_term = random.choice([
-            'artificial intelligence visualization',
-            'machine learning code python',
-            'neural network diagram',
-            'data science jupyter notebook',
-            'ai developer coding'
-        ])
-    # GitHub / Code / Project
-    elif any(word in content_lower for word in ['github', 'commit', 'repository', 'open source', 'git']):
-        search_term = random.choice([
-            'github code visible on screen',
-            'programming code displayed on laptop',
-            'developer viewing code on monitor',
-            'coding project terminal'
-        ])
-    # Learning / Student / UoPeople
-    elif any(word in content_lower for word in ['learn', 'student', 'study', 'uopeople', 'university', 'course']):
-        search_term = random.choice([
-            'student coding with laptop',
-            'online learning programming',
-            'studying computer science',
-            'developer learning new skills'
-        ])
-    # Team / Collaboration
-    elif any(word in content_lower for word in ['team', 'collaborate', 'community', 'together', 'pair']):
-        search_term = random.choice([
-            'developers collaborating on code',
-            'tech team working together',
-            'programmers pair coding',
-            'software team meeting'
-        ])
-    # Building / Creating
-    elif any(word in content_lower for word in ['build', 'create', 'ship', 'deploy', 'launch']):
-        search_term = random.choice([
-            'developer building app terminal',
-            'software deployment dashboard',
-            'programmer creating application',
-            'devops deployment screen'
-        ])
-    else:
-        # Default: Backend/DevOps focused images
-        search_term = random.choice([
-            'backend code on dark terminal',
-            'developer coding python',
-            'software engineer at computer',
-            'programming code on screen',
-            'tech workspace laptop code',
-            'professional developer working'
-        ])
-    
-    print(f"🖼️  Searching for image: '{search_term}'...")
+    logger.info("Searching for image: '%s'...", search_term)
     
     try:
-        # Add more filters to get better quality, relevant tech photos
         url = f"https://api.unsplash.com/photos/random?query={quote(search_term)}&orientation=landscape&content_filter=high"
-        headers = {
-            'Authorization': f'Client-ID {UNSPLASH_ACCESS_KEY}'
-        }
-        response = requests.get(url, headers=headers, timeout=10)
+        headers = {'Authorization': f'Client-ID {UNSPLASH_ACCESS_KEY}'}
+        resp = _retry_request("GET", url, headers=headers)
         
-        if response.status_code == 200:
-            data = response.json()
-            # Download the image directly and return the binary data
-            # This avoids 404 issues with external URLs
+        if resp is not None and resp.status_code == 200:
+            data = resp.json()
             image_download_url = data['urls']['regular']
             image_description = data.get('alt_description', 'No description')
-            print(f"✅ Found image: {image_description}")
-            print(f"   Downloading...")
+            logger.info("Found image: %s", image_description)
             
-            # Download image content
-            img_response = requests.get(image_download_url, timeout=10)
-            if img_response.status_code == 200:
-                print(f"✅ Image downloaded successfully ({len(img_response.content)} bytes)")
-                return img_response.content  # Return binary data instead of URL
+            img_resp = _retry_request("GET", image_download_url)
+            if img_resp is not None and img_resp.status_code == 200:
+                logger.info("Image downloaded (%d bytes)", len(img_resp.content))
+                return img_resp.content
             else:
-                print(f"⚠️  Failed to download image: {img_response.status_code}")
+                logger.warning("Failed to download image")
                 return None
         else:
-            print(f"⚠️  Unsplash API error: {response.status_code}")
-            if response.status_code == 403:
-                print("   Check your Unsplash API key and rate limits")
-            elif response.status_code == 401:
-                print("   Invalid API key - check your UNSPLASH_ACCESS_KEY")
-            print(f"   Response: {response.text[:200]}")
+            status = resp.status_code if resp else 'no response'
+            logger.warning("Unsplash API error: %s", status)
             return None
     except Exception as e:
-        print(f"⚠️  Error fetching image: {e}")
+        logger.warning("Error fetching image: %s", e)
         return None
 
 
-def synthesize_hashtags(post_content, desired=18):
+def synthesize_hashtags(post_content: str, desired: int = 18) -> str:
     """Create a fallback set of hashtags based on keywords in the post."""
     keywords_map = {
         'design': '#Design', 'ui': '#UI', 'ux': '#UX', 'frontend': '#Frontend',
@@ -839,12 +877,11 @@ def synthesize_hashtags(post_content, desired=18):
         selected = selected[:desired]
     return ' '.join(selected)
 
-def upload_image_to_linkedin(image_data):
-    """Upload an image to LinkedIn and return the asset URN"""
-    print(f"📤 Uploading image to LinkedIn...")
+def upload_image_to_linkedin(image_data: bytes) -> Optional[str]:
+    """Upload an image to LinkedIn and return the asset URN."""
+    logger.info("Uploading image to LinkedIn...")
     
     try:
-        # Step 1: Register the upload
         register_url = "https://api.linkedin.com/v2/assets?action=registerUpload"
         headers = {
             'Authorization': f'Bearer {LINKEDIN_ACCESS_TOKEN}',
@@ -865,38 +902,35 @@ def upload_image_to_linkedin(image_data):
             }
         }
         
-        response = requests.post(register_url, headers=headers, json=register_data)
-        if response.status_code != 200:
-            print(f"❌ Failed to register upload: {response.status_code}")
-            print(response.text)
+        response = _retry_request("POST", register_url, headers=headers, json=register_data)
+        if response is None or response.status_code != 200:
+            logger.error("Failed to register upload: %s", response.status_code if response else 'no response')
             return None
         
         register_response = response.json()
         asset_urn = register_response['value']['asset']
         upload_url = register_response['value']['uploadMechanism']['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']['uploadUrl']
         
-        # Step 2: Upload the image data directly (no download needed now)
-        print("⬆️  Uploading to LinkedIn...")
+        logger.info("Uploading binary data to LinkedIn...")
         upload_headers = {
             'Authorization': f'Bearer {LINKEDIN_ACCESS_TOKEN}',
         }
-        upload_response = requests.put(upload_url, headers=upload_headers, data=image_data)
+        upload_response = _retry_request("PUT", upload_url, headers=upload_headers, data=image_data)
         
-        if upload_response.status_code in [200, 201]:
-            print(f"✅ Image uploaded successfully: {asset_urn}")
+        if upload_response is not None and upload_response.status_code in [200, 201]:
+            logger.info("Image uploaded successfully: %s", asset_urn)
             return asset_urn
         else:
-            print(f"❌ Failed to upload image: {upload_response.status_code}")
-            print(upload_response.text)
+            logger.error("Failed to upload image: %s", upload_response.status_code if upload_response else 'no response')
             return None
             
     except Exception as e:
-        print(f"⚠️  Error uploading image: {e}")
+        logger.error("Error uploading image: %s", e)
         return None
 
 # --- THE POSTING FUNCTION ---
-def post_to_linkedin(message_text, image_asset_urn=None):
-    """Post to LinkedIn with optional image"""
+def post_to_linkedin(message_text: str, image_asset_urn: Optional[str] = None) -> None:
+    """Post to LinkedIn with optional image."""
     url = "https://api.linkedin.com/v2/ugcPosts"
     headers = {
         'Authorization': f'Bearer {LINKEDIN_ACCESS_TOKEN}',
@@ -936,39 +970,50 @@ def post_to_linkedin(message_text, image_asset_urn=None):
             "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
         }
     
-    print(f"🤖 Posting: '{message_text[:30]}...'")
-    response = requests.post(url, headers=headers, json=post_data)
-    if response.status_code == 201:
-        print("\n✅ SUCCESS! Post is live.")
+    logger.info("Posting to LinkedIn: '%s...'", message_text[:30])
+    response = _retry_request("POST", url, headers=headers, json=post_data)
+    if response is not None and response.status_code == 201:
+        logger.info("SUCCESS! Post is live.")
     else:
-        print(f"\n❌ FAILED. {response.status_code}")
-        print(response.text)
+        status = response.status_code if response else 'no response'
+        logger.error("LinkedIn post FAILED: %s", status)
 
-def post_to_twitter(message_text, linkedin_post=None):
-    """Post to Twitter/X with a shortened version of the content
+def post_to_twitter(message_text: str, linkedin_post: Optional[str] = None) -> Optional[str]:
+    """Post to Twitter/X with a shortened version of the content.
     
     Args:
         message_text: The full post content (used if linkedin_post is None)
         linkedin_post: Optional - the full LinkedIn post to create a tweet from
     """
     if not twitter_client:
-        print("⚠️  Twitter client not available - skipping Twitter post")
+        logger.warning("Twitter client not available - skipping Twitter post")
         return None
     
     # Create a tweet-sized version (280 chars max)
-    # Remove hashtags and create a concise tweet
+    # Remove only the final hashtags line (not lines that happen to start with #)
     content = linkedin_post or message_text
     
-    # Strip hashtags (they're too long for tweets)
+    # Strip the final hashtags line only
     lines = content.split('\n')
-    clean_lines = [line for line in lines if not line.strip().startswith('#')]
+    clean_lines = list(lines)
+    while clean_lines:
+        last = clean_lines[-1].strip()
+        if not last:
+            clean_lines.pop()
+            continue
+        tags = [w for w in last.split() if w.startswith('#')]
+        if tags and len(tags) == len(last.split()):
+            clean_lines.pop()
+            break
+        else:
+            break
     clean_content = '\n'.join(clean_lines).strip()
     
     # Get the first meaningful paragraph as the tweet
     paragraphs = [p.strip() for p in clean_content.split('\n\n') if p.strip()]
     
     if paragraphs:
-        tweet_text = paragraphs[0]  # Use the hook/opening
+        tweet_text = paragraphs[0]
     else:
         tweet_text = clean_content[:250]
     
@@ -981,71 +1026,75 @@ def post_to_twitter(message_text, linkedin_post=None):
     if len(tweet_text) + len(hashtags) <= 280:
         tweet_text += hashtags
     
-    print(f"🐦 Posting tweet: '{tweet_text[:50]}...'")
+    logger.info("Posting tweet: '%s...'", tweet_text[:50])
     
     try:
         response = twitter_client.create_tweet(text=tweet_text)
         if response and response.data:
             tweet_id = response.data['id']
-            print(f"✅ Tweet posted! ID: {tweet_id}")
-            print(f"   https://twitter.com/i/status/{tweet_id}")
+            logger.info("Tweet posted! ID: %s", tweet_id)
+            logger.info("  https://twitter.com/i/status/%s", tweet_id)
             return tweet_id
         else:
-            print("⚠️  Tweet response was empty")
+            logger.warning("Tweet response was empty")
             return None
     except Exception as e:
-        print(f"❌ Twitter post failed: {e}")
+        logger.error("Twitter post failed: %s", e)
         return None
 
 # --- MAIN BRAIN ---
 if __name__ == "__main__":
     # Set TEST_MODE = True to preview posts without posting to LinkedIn
-    TEST_MODE = True   # Change to False when you're ready to post live
+    TEST_MODE = False   # Change to False when you're ready to post live
     
-    print("🤖 LinkedIn Post Bot Starting...\n")
+    logger.info("LinkedIn Post Bot Starting...")
     if TEST_MODE:
-        print("🧪 TEST MODE ENABLED - Posts will NOT go live on LinkedIn\n")
+        logger.info("TEST MODE ENABLED - Posts will NOT go live on LinkedIn")
+    
+    # Validate credentials before doing any work
+    if not validate_credentials(require_linkedin=not TEST_MODE):
+        logger.error("Aborting: fix missing credentials and try again.")
+        sys.exit(1)
     
     # Priority 1: Check for today's GitHub activity (may return multiple)
-    print("Step 1️⃣: Checking GitHub activity...")
+    logger.info("Step 1: Checking GitHub activity...")
     github_activities = get_latest_github_activity()
 
-    posts_to_publish = []
+    posts_to_publish: List[Dict[str, Any]] = []
 
     if github_activities:
-        print(f"✨ Found {len(github_activities)} GitHub activity(ies)!\n")
+        logger.info("Found %d GitHub activity(ies)!", len(github_activities))
         posts_to_publish.extend(github_activities)
     else:
         # Fallback: check repo-level pushes (covers updates not visible in user events)
-        print("\nStep 1️⃣b: No direct user events found — scanning repos for recent pushes...")
+        logger.info("Step 1b: No direct user events found — scanning repos for recent pushes...")
         repo_activities = get_recent_repo_updates()
         if repo_activities:
-            print(f"✨ Found {len(repo_activities)} repo-level recent update(s)!\n")
+            logger.info("Found %d repo-level recent update(s)!", len(repo_activities))
             posts_to_publish.extend(repo_activities)
         else:
             # Priority 2: Check for GitHub stats/milestones
-            print("\nStep 2️⃣: Checking GitHub milestones...")
+            logger.info("Step 2: Checking GitHub milestones...")
             github_stats = get_github_stats()
 
             if github_stats and (github_stats['public_repos'] % 5 == 0 or github_stats['followers'] % 10 == 0):
-                print("📊 Found a milestone! Generating post...\n")
+                logger.info("Found a milestone! Generating post...")
                 posts_to_publish.append(github_stats)
             else:
                 # Priority 3: Use AI to generate generic dev content
-                print("\nStep 3️⃣: Generating AI-powered generic post...\n")
-                generic_context = {
+                logger.info("Step 3: Generating AI-powered generic post...")
+                generic_context: Dict[str, Any] = {
                     'type': 'generic'
                 }
                 posts_to_publish.append(generic_context)
     
     # Post multiple items (one post per activity)
     if posts_to_publish:
-        # Clear or create the preview file
         with open("last_generated_post.txt", "w", encoding="utf-8") as f:
             f.write("")
 
         for idx, ctx in enumerate(posts_to_publish):
-            print(f"\n--- Generating post {idx+1}/{len(posts_to_publish)} ---")
+            logger.info("--- Generating post %d/%d ---", idx + 1, len(posts_to_publish))
             post_content = generate_post_with_ai(ctx)
             
             # Final fallback: if the model output seems truncated, append synthesized hashtags
@@ -1057,58 +1106,49 @@ if __name__ == "__main__":
                     return False
                 last = lines[-1]
                 tags = [w for w in last.split() if w.startswith('#')]
-                # MUST have 15-20 hashtags on the last line - no exceptions
-                return 15 <= len(tags) <= 20
+                return 8 <= len(tags) <= 20
 
             if post_content and not _looks_complete_local(post_content):
-                print("⚠️  Post missing proper hashtags line — applying fallback completion.")
-                # Ensure post ends with proper punctuation
+                logger.warning("Post missing proper hashtags line — applying fallback completion.")
                 if not post_content.strip().endswith(('.', '!', '?')):
-                    # Find the last complete sentence
                     post_content = post_content.rstrip()
-                    # If it trails off, add ellipsis or period
                     if post_content and post_content[-1].isalnum():
                         post_content += '.'
                 hashtags_line = synthesize_hashtags(post_content, desired=18)
                 post_content = post_content.rstrip() + '\n\n' + hashtags_line
             if not post_content:
-                print("❌ Failed to generate post content for activity; skipping.")
+                logger.error("Failed to generate post content for activity; skipping.")
                 continue
 
-            # Append to preview file with separator
             with open("last_generated_post.txt", "a", encoding="utf-8") as f:
                 f.write("\n" + "="*60 + "\n")
                 f.write(post_content + "\n")
                 f.write("="*60 + "\n")
 
-            print("\n📝 GENERATED POST PREVIEW (saved to last_generated_post.txt):")
-            print(post_content)  # Show full post in preview
+            logger.info("GENERATED POST PREVIEW (saved to last_generated_post.txt):")
+            print(post_content)  # Print full post to stdout for preview
 
             if TEST_MODE:
-                # Show image info in test mode
                 image_data = get_relevant_image(post_content)
                 if image_data:
-                    print(f"🖼️  Image downloaded successfully ({len(image_data)} bytes - would be used in live mode)")
+                    logger.info("Image downloaded (%d bytes — would be used in live mode)", len(image_data))
                 else:
-                    print("🖼️  No image for this post")
+                    logger.info("No image for this post")
             else:
-                # Live mode: fetch & upload image, then post
                 image_data = get_relevant_image(post_content)
                 image_asset_urn = None
                 if image_data:
                     image_asset_urn = upload_image_to_linkedin(image_data)
                     if image_asset_urn:
-                        print("🎨 Post will include an image!")
+                        logger.info("Post will include an image!")
 
                 post_to_linkedin(post_content, image_asset_urn)
-                # Also post to Twitter if configured
                 if twitter_client:
                     post_to_twitter(post_content)
-                # Rate limit between posts to avoid spam
                 if idx < (len(posts_to_publish) - 1):
                     delay_minutes = POST_DELAY_SECONDS / 60
-                    print(f"⏱ Sleeping {delay_minutes:.0f} minutes before next post...")
+                    logger.info("Sleeping %.0f minutes before next post...", delay_minutes)
                     time.sleep(POST_DELAY_SECONDS)
-        print("\nAll posts processed. Previews saved to last_generated_post.txt")
+        logger.info("All posts processed. Previews saved to last_generated_post.txt")
     else:
-        print("❌ No activities to generate posts from.")
+        logger.warning("No activities to generate posts from.")
