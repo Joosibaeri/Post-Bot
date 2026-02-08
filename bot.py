@@ -978,77 +978,143 @@ def post_to_linkedin(message_text: str, image_asset_urn: Optional[str] = None) -
         status = response.status_code if response else 'no response'
         logger.error("LinkedIn post FAILED: %s", status)
 
-def post_to_twitter(message_text: str, linkedin_post: Optional[str] = None) -> Optional[str]:
-    """Post to Twitter/X with a shortened version of the content.
-    
+def generate_tweet_with_ai(context_data: Dict[str, Any], linkedin_post: Optional[str] = None) -> Optional[str]:
+    """Generate a Twitter/X-native post using AI.
+
+    Twitter posts are fundamentally different from LinkedIn:
+    - Max 280 characters
+    - Casual, punchy, emoji-heavy
+    - 2-4 hashtags max (not 8-12)
+    - Questions to spark replies
+    - No long storytelling
+    """
+    logger.info("Generating Twitter-native post with AI...")
+
+    # Build a context summary for the AI
+    if isinstance(context_data, dict) and context_data.get('type') == 'push':
+        safe_repo = sanitize_for_prompt(context_data.get('repo', ''))
+        topic_hint = f"Just pushed {context_data.get('commits', '')} commit(s) to '{safe_repo}'. The repo has {context_data.get('total_commits', 'many')} total commits."
+    elif isinstance(context_data, dict) and context_data.get('type') == 'pull_request':
+        safe_repo = sanitize_for_prompt(context_data.get('repo', ''))
+        topic_hint = f"Just {context_data.get('action', 'opened')} a pull request on '{safe_repo}'."
+    elif isinstance(context_data, dict) and context_data.get('type') == 'new_repo':
+        safe_repo = sanitize_for_prompt(context_data.get('repo', ''))
+        topic_hint = f"Just created a new repository called '{safe_repo}'."
+    elif isinstance(context_data, dict) and context_data.get('type') == 'milestone':
+        topic_hint = f"Reached a milestone: {context_data.get('public_repos', '?')} public repos, {context_data.get('followers', '?')} followers."
+    else:
+        topic_hint = "General dev/tech thought."
+
+    # Optionally include the LinkedIn post as reference so the tweet covers the same topic
+    reference = ""
+    if linkedin_post:
+        # Trim to avoid blowing up the prompt
+        reference = f"\n\nFor reference, here is the LinkedIn post on the same topic (DO NOT copy it, write a completely different tweet):\n{linkedin_post[:600]}"
+
+    tweet_prompt = f"""Write a single tweet (max 280 characters) for Twitter/X.
+
+Context: {topic_hint}{reference}
+
+TWITTER STYLE RULES:
+- MAX 280 characters total including hashtags and emojis
+- Short, punchy, exciting — like texting a friend
+- Use 2-4 emojis naturally (🚀 🔥 💡 ✨ 👨‍💻 💻 🎯 ⚡)
+- End with a question OR a bold statement to get replies
+- Include 2-4 hashtags INLINE (woven into the text or at the end)
+- NO links, NO @mentions
+- Casual tone — contractions, exclamations, slang are fine
+- ONE short thought, not a mini-essay
+- DO NOT use markdown formatting
+
+EXAMPLES OF GOOD TWEETS:
+"End of Month 2 in #ALX_BE, and I've started working with Django! 👨‍💻 Excited to create dynamic web applications and powerful backends using Python's top framework. 🚀💻\n\nWhat's your favorite Django feature? Let's chat about it! 💬👇 #ALX #Django"
+
+"Just mass-refactored my entire auth system and nothing broke. 🔐✨ Is this what peak engineering feels like? #DevSecOps #Coding"
+
+"3am debugging session and I finally cracked the bug. 🐛🔥 The feeling is unmatched. Who else has been there? #CodeLife #DevLife"
+
+Output ONLY the tweet text, nothing else."""
+
+    system_msg = "You are a Twitter/X post writer. Write short, punchy tweets under 280 characters. Use emojis and hashtags. Be casual and engaging. NEVER use markdown. Output ONLY the tweet text."
+
+    try:
+        if mistral_client and random.random() < 0.7:
+            resp = mistral_client.chat.complete(
+                model="mistral-large-latest",
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": tweet_prompt}
+                ],
+                temperature=0.8,
+                max_tokens=300,
+            )
+            tweet = resp.choices[0].message.content.strip()
+        elif groq_client:
+            resp = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": tweet_prompt}
+                ],
+                temperature=0.8,
+                max_tokens=300,
+            )
+            tweet = resp.choices[0].message.content.strip()
+        else:
+            logger.warning("No AI client available for tweet generation")
+            return None
+
+        # Clean up: remove quotes the AI may have wrapped around the tweet
+        if tweet.startswith('"') and tweet.endswith('"'):
+            tweet = tweet[1:-1]
+        if tweet.startswith("'") and tweet.endswith("'"):
+            tweet = tweet[1:-1]
+
+        # Strip markdown just in case
+        tweet = strip_markdown(tweet)
+
+        # Hard enforce 280 char limit
+        if len(tweet) > 280:
+            # Try to cut at last complete sentence that fits
+            truncated = tweet[:280]
+            last_punc = max(truncated.rfind('.'), truncated.rfind('!'), truncated.rfind('?'))
+            if last_punc > 80:
+                tweet = truncated[:last_punc + 1]
+            else:
+                # Cut at last space to avoid mid-word
+                last_space = truncated.rfind(' ')
+                if last_space > 80:
+                    tweet = truncated[:last_space]
+
+        logger.info("Generated tweet (%d chars): %s", len(tweet), tweet[:80])
+        return tweet
+
+    except Exception as e:
+        logger.error("Failed to generate tweet with AI: %s", e)
+        return None
+
+
+def post_to_twitter(
+    context_data: Dict[str, Any],
+    linkedin_post: Optional[str] = None,
+) -> Optional[str]:
+    """Generate a Twitter-native post and publish it.
+
     Args:
-        message_text: The full post content (used if linkedin_post is None)
-        linkedin_post: Optional - the full LinkedIn post to create a tweet from
+        context_data: The activity context (same dict passed to generate_post_with_ai)
+        linkedin_post: The LinkedIn post for topic reference (tweet will NOT copy it)
     """
     if not twitter_client:
         logger.warning("Twitter client not available - skipping Twitter post")
         return None
-    
-    # Create a tweet-sized version (280 chars max)
-    # Remove only the final hashtags line (not lines that happen to start with #)
-    content = linkedin_post or message_text
-    
-    # Strip the final hashtags line only
-    lines = content.split('\n')
-    clean_lines = list(lines)
-    while clean_lines:
-        last = clean_lines[-1].strip()
-        if not last:
-            clean_lines.pop()
-            continue
-        tags = [w for w in last.split() if w.startswith('#')]
-        if tags and len(tags) == len(last.split()):
-            clean_lines.pop()
-            break
-        else:
-            break
-    clean_content = '\n'.join(clean_lines).strip()
-    
-    # Build tweet from the first 2-3 short paragraphs that fit
-    paragraphs = [p.strip() for p in clean_content.split('\n\n') if p.strip()]
-    
-    # Target: fit complete sentences within 260 chars (leave room for hashtags)
-    MAX_TWEET_BODY = 260
-    tweet_text = ""
-    for para in paragraphs:
-        candidate = (tweet_text + "\n\n" + para).strip() if tweet_text else para
-        if len(candidate) <= MAX_TWEET_BODY:
-            tweet_text = candidate
-        else:
-            # Try to fit individual sentences from this paragraph
-            sentences = re.split(r'(?<=[.!?])\s+', para)
-            for sentence in sentences:
-                candidate = (tweet_text + " " + sentence).strip() if tweet_text else sentence
-                if len(candidate) <= MAX_TWEET_BODY:
-                    tweet_text = candidate
-                else:
-                    break
-            break
-    
-    # If we still have nothing (edge case), take the first sentence
+
+    tweet_text = generate_tweet_with_ai(context_data, linkedin_post)
     if not tweet_text:
-        first_sentence = re.split(r'(?<=[.!?])\s+', clean_content)[0]
-        tweet_text = first_sentence[:MAX_TWEET_BODY]
-    
-    # Ensure the tweet ends with proper punctuation, not mid-word
-    if not tweet_text.rstrip().endswith(('.', '!', '?')):
-        # Find the last complete sentence
-        last_punc = max(tweet_text.rfind('.'), tweet_text.rfind('!'), tweet_text.rfind('?'))
-        if last_punc > 50:  # Only trim if we keep enough content
-            tweet_text = tweet_text[:last_punc + 1]
-    
-    # Add a couple relevant hashtags back
-    hashtags = " #DevSecOps #Tech"
-    if len(tweet_text) + len(hashtags) <= 280:
-        tweet_text += hashtags
-    
-    logger.info("Posting tweet: '%s...'", tweet_text[:50])
-    
+        logger.warning("Could not generate a tweet — skipping Twitter post")
+        return None
+
+    logger.info("Posting tweet: '%s'", tweet_text[:80])
+
     try:
         response = twitter_client.create_tweet(text=tweet_text)
         if response and response.data:
@@ -1165,7 +1231,7 @@ if __name__ == "__main__":
 
                 post_to_linkedin(post_content, image_asset_urn)
                 if twitter_client:
-                    post_to_twitter(post_content)
+                    post_to_twitter(ctx, linkedin_post=post_content)
                 if idx < (len(posts_to_publish) - 1):
                     delay_minutes = POST_DELAY_SECONDS / 60
                     logger.info("Sleeping %.0f minutes before next post...", delay_minutes)
