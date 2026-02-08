@@ -554,9 +554,10 @@ Requirements:
         # Randomly select between available AI models for variety
         system_message = "You are a LinkedIn post writer. You MUST complete every post you write. Every post MUST end with exactly 8-12 hashtags on the final line. Include @mentions naturally when relevant. NEVER stop mid-sentence or before adding the hashtags."
         
-        available_models = ["groq"]
+        available_models = []
         if mistral_client:
-            available_models.append("mistral")
+            available_models.append("mistral")  # Mistral first (preferred)
+        available_models.append("groq")  # Groq as backup
         
         selected_model = random.choice(available_models)
         
