@@ -559,7 +559,11 @@ Requirements:
             available_models.append("mistral")  # Mistral first (preferred)
         available_models.append("groq")  # Groq as backup
         
-        selected_model = random.choice(available_models)
+        # Prefer Mistral (70%) but still switch to Groq (30%) for variety
+        if mistral_client and random.random() < 0.7:
+            selected_model = "mistral"
+        else:
+            selected_model = "groq"
         
         if selected_model == "mistral" and mistral_client:
             print(f"🌀 Using Mistral AI for this post...")
