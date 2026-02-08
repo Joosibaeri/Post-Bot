@@ -171,37 +171,27 @@ def sanitize_for_prompt(text: str) -> str:
 def _get_repo_total_commits(full_repo: str) -> int:
     """Fetch total commit count for a repository using the GitHub API.
 
-    Uses the Contributors endpoint (returns commit counts per contributor)
-    and sums them up. Returns 0 if unavailable.
+    Uses the commits endpoint with per_page=1 and reads the 'last' page
+    number from the Link header. Returns 0 only if the API call fails.
     """
-    url = f"https://api.github.com/repos/{full_repo}/contributors?per_page=1&anon=true"
-    resp = _github_get(url)
-    if resp is None:
-        return 0
-    # GitHub returns total count in the Link header's last page number
-    # e.g. <...?page=5>; rel="last" means 5 pages of contributors
-    # Faster approach: use the Commits search or repo stats
-    # Best approach: use the commit count from repo endpoint
-    stats_url = f"https://api.github.com/repos/{full_repo}"
-    stats_resp = _github_get(stats_url)
-    if stats_resp is not None and stats_resp.status_code == 200:
-        # The repo endpoint doesn't directly give commit count,
-        # but we can get it from the commits endpoint using pagination trick
-        pass
-    # Use the commits endpoint with per_page=1 and read the last page from Link header
     commits_url = f"https://api.github.com/repos/{full_repo}/commits?per_page=1"
-    commits_resp = _github_get(commits_url)
-    if commits_resp is None or commits_resp.status_code != 200:
+    resp = _github_get(commits_url)
+    if resp is None or resp.status_code != 200:
+        logger.warning("Could not fetch commit count for %s (status=%s)",
+                       full_repo, resp.status_code if resp else 'None')
         return 0
-    link_header = commits_resp.headers.get('Link', '')
+    link_header = resp.headers.get('Link', '')
     # Parse: <https://...?per_page=1&page=139>; rel="last"
-    import re as _re
-    match = _re.search(r'[&?]page=(\d+)>; rel="last"', link_header)
+    match = re.search(r'[&?]page=(\d+)>; rel="last"', link_header)
     if match:
-        return int(match.group(1))
-    # If no Link header, there's only 1 page = few commits
-    data = commits_resp.json()
-    return len(data) if isinstance(data, list) else 0
+        total = int(match.group(1))
+        logger.info("Repo %s has %d total commits", full_repo, total)
+        return total
+    # No Link header means everything fits on 1 page (≤1 commit)
+    data = resp.json()
+    total = len(data) if isinstance(data, list) else 1
+    logger.info("Repo %s has %d total commits (single page)", full_repo, total)
+    return total
 
 # --- LINKEDIN PERSONA (AI Personality) ---
 LINKEDIN_PERSONA = """You are writing LinkedIn posts for Clifford (Darko) Opoku-Sarkodie.
@@ -346,7 +336,8 @@ def get_latest_github_activity(max_items: Optional[int] = None) -> List[Dict[str
         clean_repo_name = repo_name.split('/')[-1] if repo_name else ''
 
         if etype == 'PushEvent':
-            commit_count = len(event.get('payload', {}).get('commits', []))
+            # payload.size is the true commit count; payload.commits may be truncated to 20
+            commit_count = event.get('payload', {}).get('size') or len(event.get('payload', {}).get('commits', []))
             total_commits = _get_repo_total_commits(repo_name)
             activities.append({
                 'type': 'push',
@@ -358,20 +349,24 @@ def get_latest_github_activity(max_items: Optional[int] = None) -> List[Dict[str
             })
         elif etype == 'PullRequestEvent':
             action = event.get('payload', {}).get('action', 'updated')
+            total_commits = _get_repo_total_commits(repo_name)
             activities.append({
                 'type': 'pull_request',
                 'action': action,
                 'repo': clean_repo_name,
                 'full_repo': repo_name,
+                'total_commits': total_commits,
                 'date': when_text,
             })
         elif etype == 'CreateEvent':
             ref_type = event.get('payload', {}).get('ref_type', 'repo')
             if ref_type == 'repository':
+                total_commits = _get_repo_total_commits(repo_name)
                 activities.append({
                     'type': 'new_repo',
                     'repo': clean_repo_name,
                     'full_repo': repo_name,
+                    'total_commits': total_commits,
                     'date': when_text,
                 })
 
@@ -485,7 +480,7 @@ def generate_post_with_ai(context_data: Dict[str, Any]) -> Optional[str]:
             safe_full_repo = sanitize_for_prompt(context_data.get('full_repo', ''))
             context_prompt = f"""
 GitHub Activity: User just pushed {context_data['commits']} commit(s) to repo '{safe_repo}' {context_data['date']}.
-The repo has {context_data.get('total_commits', 'many')} total commits.
+The repo has {context_data.get('total_commits') or 'many'} total commits across its history.
 Repo: https://github.com/{safe_full_repo}
 
 WRITE A COMPLETE LINKEDIN POST - MUST INCLUDE EVERYTHING BELOW:
@@ -990,20 +985,33 @@ def generate_tweet_with_ai(context_data: Dict[str, Any], linkedin_post: Optional
     """
     logger.info("Generating Twitter-native post with AI...")
 
-    # Build a context summary for the AI
+    # Build a context summary and repo link for the AI
+    repo_link = ""
     if isinstance(context_data, dict) and context_data.get('type') == 'push':
         safe_repo = sanitize_for_prompt(context_data.get('repo', ''))
-        topic_hint = f"Just pushed {context_data.get('commits', '')} commit(s) to '{safe_repo}'. The repo has {context_data.get('total_commits', 'many')} total commits."
+        safe_full_repo = sanitize_for_prompt(context_data.get('full_repo', ''))
+        repo_link = f"https://github.com/{safe_full_repo}" if safe_full_repo else ""
+        commits_text = context_data.get('commits', '')
+        total_text = context_data.get('total_commits') or 'many'
+        topic_hint = f"Just pushed {commits_text} commit(s) to '{safe_repo}'. The repo has {total_text} total commits."
     elif isinstance(context_data, dict) and context_data.get('type') == 'pull_request':
         safe_repo = sanitize_for_prompt(context_data.get('repo', ''))
-        topic_hint = f"Just {context_data.get('action', 'opened')} a pull request on '{safe_repo}'."
+        safe_full_repo = sanitize_for_prompt(context_data.get('full_repo', ''))
+        repo_link = f"https://github.com/{safe_full_repo}" if safe_full_repo else ""
+        total_text = context_data.get('total_commits') or 'many'
+        topic_hint = f"Just {context_data.get('action', 'opened')} a pull request on '{safe_repo}' (repo has {total_text} total commits)."
     elif isinstance(context_data, dict) and context_data.get('type') == 'new_repo':
         safe_repo = sanitize_for_prompt(context_data.get('repo', ''))
-        topic_hint = f"Just created a new repository called '{safe_repo}'."
+        safe_full_repo = sanitize_for_prompt(context_data.get('full_repo', ''))
+        repo_link = f"https://github.com/{safe_full_repo}" if safe_full_repo else ""
+        total_text = context_data.get('total_commits') or 'many'
+        topic_hint = f"Just created a new repository called '{safe_repo}' ({total_text} commits so far)."
     elif isinstance(context_data, dict) and context_data.get('type') == 'milestone':
         topic_hint = f"Reached a milestone: {context_data.get('public_repos', '?')} public repos, {context_data.get('followers', '?')} followers."
+        repo_link = f"https://github.com/{GITHUB_USERNAME}" if GITHUB_USERNAME else ""
     else:
         topic_hint = "General dev/tech thought."
+        repo_link = f"https://github.com/{GITHUB_USERNAME}" if GITHUB_USERNAME else ""
 
     # Optionally include the LinkedIn post as reference so the tweet covers the same topic
     reference = ""
@@ -1011,27 +1019,31 @@ def generate_tweet_with_ai(context_data: Dict[str, Any], linkedin_post: Optional
         # Trim to avoid blowing up the prompt
         reference = f"\n\nFor reference, here is the LinkedIn post on the same topic (DO NOT copy it, write a completely different tweet):\n{linkedin_post[:600]}"
 
+    link_instruction = ""
+    if repo_link:
+        link_instruction = f"\n- MUST include this link in the tweet: {repo_link}"
+
     tweet_prompt = f"""Write a single tweet (max 280 characters) for Twitter/X.
 
 Context: {topic_hint}{reference}
 
 TWITTER STYLE RULES:
-- MAX 280 characters total including hashtags and emojis
+- MAX 280 characters total including hashtags, emojis, and links
 - Short, punchy, exciting — like texting a friend
-- Use 2-4 emojis naturally (🚀 🔥 💡 ✨ 👨‍💻 💻 🎯 ⚡)
+- Use 2-4 emojis naturally (🚀 🔥 💡 ✨ 👨‍💻 💻 🎯 ⚡){link_instruction}
 - End with a question OR a bold statement to get replies
-- Include 2-4 hashtags INLINE (woven into the text or at the end)
-- NO links, NO @mentions
+- Include 2-3 hashtags INLINE (woven into the text or at the end)
+- NO @mentions
 - Casual tone — contractions, exclamations, slang are fine
 - ONE short thought, not a mini-essay
 - DO NOT use markdown formatting
 
 EXAMPLES OF GOOD TWEETS:
-"End of Month 2 in #ALX_BE, and I've started working with Django! 👨‍💻 Excited to create dynamic web applications and powerful backends using Python's top framework. 🚀💻\n\nWhat's your favorite Django feature? Let's chat about it! 💬👇 #ALX #Django"
+"End of Month 2 in #ALX_BE, and I've started working with Django! 👨‍💻 Excited to build powerful backends using Python's top framework. 🚀💻\n\nWhat's your favorite Django feature? Let's chat! 💬👇 #ALX #Django"
 
-"Just mass-refactored my entire auth system and nothing broke. 🔐✨ Is this what peak engineering feels like? #DevSecOps #Coding"
+"Just mass-refactored my entire auth system and nothing broke 🔐✨ Check it out: https://github.com/user/repo #DevSecOps #Coding"
 
-"3am debugging session and I finally cracked the bug. 🐛🔥 The feeling is unmatched. Who else has been there? #CodeLife #DevLife"
+"3am debugging session and I finally cracked it 🐛🔥 The feeling is unmatched. Who else has been there? #CodeLife #DevLife"
 
 Output ONLY the tweet text, nothing else."""
 
