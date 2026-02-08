@@ -357,12 +357,43 @@ def get_recent_repo_updates():
         print(f"⚠️  Error scanning repos: {e}")
         return None
 
-# --- AI BRAIN: GENERATE DYNAMIC CONTENT WITH GROQ ---
+# --- AI BRAIN: GENERATE DYNAMIC CONTENT WITH GROQ/MISTRAL ---
+# Hook starters for guaranteed variety
+HOOK_STARTERS = [
+    "Hot take:",
+    "Unpopular opinion:",
+    "Most developers get this wrong:",
+    "Confession:",
+    "I used to think",
+    "3 things I learned",
+    "Here's what nobody tells you about",
+    "It was 2am.",
+    "Picture this:",
+    "There I was,",
+    "They said it couldn't be done.",
+    "The hardest part of",
+    "What if I told you",
+    "Stop doing this:",
+    "The secret to",
+    "I almost gave up on",
+    "Day 57 of",
+    "Real talk:",
+    "Plot twist:",
+    "You know that feeling when",
+]
+
+def get_random_hook():
+    """Get a random hook starter for variety"""
+    return random.choice(HOOK_STARTERS)
+
 def generate_post_with_ai(context_data):
-    """Use Google Groq to draft a LinkedIn post based on context"""
-    print("🧠 Groq AI is thinking and drafting your post...")
+    """Use Groq/Mistral AI to draft a LinkedIn post based on context"""
+    print("🧠 AI is thinking and drafting your post...")
     
     try:
+        # Get a random hook for this post
+        random_hook = get_random_hook()
+        
         # Build context prompt based on what triggered the post
         if isinstance(context_data, dict) and context_data.get('type') == 'push':
             context_prompt = f"""
@@ -371,9 +402,10 @@ Repo: https://github.com/{context_data['full_repo']}
 
 WRITE A COMPLETE LINKEDIN POST - MUST INCLUDE EVERYTHING BELOW:
 
+MANDATORY HOOK STARTER (use this exact opening): "{random_hook}"
+
 Structure (250-350 words total):
-1. Hook (1-2 sentences) - relatable moment about coding/building
-   - CRITICAL: Avoid ALL repetitive opening patterns - be completely unique each time
+1. Hook (1-2 sentences) - START WITH: "{random_hook}" then continue with a relatable moment about coding/building
 2. Story (3-4 sentences) - what this code work involved and what you learned  
 3. Value (1-2 sentences) - why it matters or insight gained
 4. Question (1 sentence) - ask your network something and tag relevant people/topics
