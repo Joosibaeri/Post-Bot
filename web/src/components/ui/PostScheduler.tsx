@@ -5,12 +5,11 @@
  * TO REGENERATE when backend changes: npm run generate:types
  */
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { CompactCharCounter } from './CharacterCounter';
 import type { SchedulePostRequest } from '@/types/dashboard';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface ScheduledPost {
     id: number;
@@ -72,7 +71,7 @@ export function PostScheduler({
         setIsScheduling(true);
 
         try {
-            const response = await axios.post(`${API_BASE}/api/scheduled`, {
+            const response = await api.post(`/api/scheduled`, {
                 user_id: userId,
                 post_content: postContent,
                 scheduled_time: scheduledTimestamp,
@@ -101,8 +100,9 @@ export function PostScheduler({
 
             <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Date</label>
+                    <label htmlFor="schedule-date" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Date</label>
                     <input
+                        id="schedule-date"
                         type="date"
                         value={selectedDate}
                         onChange={(e) => setSelectedDate(e.target.value)}
@@ -111,8 +111,9 @@ export function PostScheduler({
                     />
                 </div>
                 <div>
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Time</label>
+                    <label htmlFor="schedule-time" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Time</label>
                     <input
+                        id="schedule-time"
                         type="time"
                         value={selectedTime}
                         onChange={(e) => setSelectedTime(e.target.value)}
@@ -174,7 +175,7 @@ export function ScheduledPostsList({ userId }: ScheduledPostsListProps) {
 
     const loadPosts = async () => {
         try {
-            const response = await axios.get(`${API_BASE}/api/scheduled/${userId}`);
+            const response = await api.get(`/api/scheduled/${userId}`);
             if (response.data.success) {
                 setPosts(response.data.posts || []);
             }
@@ -191,7 +192,7 @@ export function ScheduledPostsList({ userId }: ScheduledPostsListProps) {
 
     const handleCancel = async (postId: number) => {
         try {
-            const response = await axios.delete(`${API_BASE}/api/scheduled/${postId}?user_id=${userId}`);
+            const response = await api.delete(`/api/scheduled/${postId}?user_id=${userId}`);
             if (response.data.success) {
                 showToast.success('Scheduled post cancelled');
                 loadPosts();

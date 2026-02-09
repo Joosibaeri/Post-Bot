@@ -5,7 +5,7 @@
  * TO REGENERATE when backend changes: npm run generate:types
  */
 import { useState, useCallback, useEffect } from 'react';
-import axios, { AxiosResponse } from 'axios';
+import { api } from '@/lib/api';
 import { useAuth } from '@clerk/nextjs';
 import { showToast } from '@/lib/toast';
 import { PostQueuePanel } from './PostQueuePanel';
@@ -24,8 +24,6 @@ import type {
     ImagePreviewRequest,
     GitHubActivity
 } from '@/types/dashboard';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Local UI-specific types that extend or complement API types
 interface Activity extends GitHubActivity {
@@ -120,7 +118,7 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
         const fetchStats = async () => {
             try {
                 const token = await getToken();
-                const response = await axios.get(`${API_BASE}/api/post/bot-stats?user_id=${userId}`, {
+                const response = await api.get(`/api/post/bot-stats?user_id=${userId}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (response.data) {
@@ -156,7 +154,7 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
         try {
             const hours = searchDays * 24;
             const token = await getToken();
-            const response = await axios.post(`${API_BASE}/api/github/scan`, {
+            const response = await api.post(`/api/github/scan`, {
                 user_id: userId,
                 hours: hours,
                 activity_type: activityType !== 'all' ? activityType : undefined
@@ -213,7 +211,7 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
 
         try {
             const token = await getToken();
-            const response = await axios.post(`${API_BASE}/api/post/generate-batch`, {
+            const response = await api.post(`/api/post/generate-batch`, {
                 user_id: userId,
                 activities: toGenerate,
                 style: selectedTemplate,
@@ -266,7 +264,7 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
         setLoadingImages(true);
 
         try {
-            const response = await axios.post(`${API_BASE}/api/image/preview`, {
+            const response = await api.post(`/api/image/preview`, {
                 post_content: post.content,
                 count: 3
             });
@@ -315,7 +313,7 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
 
         try {
             const token = await getToken();
-            const response = await axios.post(`${API_BASE}/api/publish/full`, {
+            const response = await api.post(`/api/publish/full`, {
                 user_id: userId,
                 post_content: post.content,
                 image_url: post.image_url,
@@ -383,6 +381,7 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
                     </span>
                     <button
                         onClick={() => setTestMode(!testMode)}
+                        aria-label={testMode ? 'Switch to Live Mode' : 'Switch to Test Mode'}
                         className={`relative w-14 h-7 rounded-full transition-colors duration-200 ${testMode ? 'bg-orange-500' : 'bg-green-500'
                             }`}
                     >
@@ -506,6 +505,7 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
                                 {tier === 'free' && <span className="ml-1 text-orange-500">🔒</span>}
                             </label>
                             <select
+                                aria-label="Post Style"
                                 value={selectedTemplate}
                                 onChange={(e) => {
                                     if (tier === 'free') {
@@ -539,6 +539,7 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
                                 {tier === 'free' && <span className="ml-1 text-orange-500">🔒</span>}
                             </label>
                             <select
+                                aria-label="AI Model"
                                 value={selectedModel}
                                 onChange={(e) => {
                                     const model = AI_MODELS.find(m => m.value === e.target.value);

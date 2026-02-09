@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface ScheduleModalProps {
     isOpen: boolean;
@@ -21,6 +22,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
     );
     const [selectedTime, setSelectedTime] = useState<string>('09:00');
     const [isScheduling, setIsScheduling] = useState(false);
+    const trapRef = useFocusTrap<HTMLDivElement>(isOpen);
 
     if (!isOpen) return null;
 
@@ -28,6 +30,14 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
         setIsScheduling(true);
         try {
             const scheduledDate = new Date(`${selectedDate}T${selectedTime}`);
+            
+            // Validate: cannot schedule in the past
+            if (scheduledDate <= new Date()) {
+                console.error('Cannot schedule posts in the past');
+                setIsScheduling(false);
+                return;
+            }
+            
             await onSchedule(scheduledDate, selectedTime);
             onClose();
         } catch (error) {
@@ -52,6 +62,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
             role="dialog"
             aria-modal="true"
             aria-labelledby="schedule-modal-title"
+            ref={trapRef}
         >
             <div
                 className="bg-white dark:bg-gray-900 rounded-2xl max-w-lg w-full shadow-2xl"

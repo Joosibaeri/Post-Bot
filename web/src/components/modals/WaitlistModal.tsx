@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface WaitlistModalProps {
     isOpen: boolean;
@@ -16,6 +17,8 @@ export default function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
     const [email, setEmail] = useState('');
     const [submitted, setSubmitted] = useState(false);
     const [loading, setLoading] = useState(false);
+
+    const trapRef = useFocusTrap<HTMLDivElement>(isOpen);
 
     if (!isOpen) return null;
 
@@ -32,7 +35,7 @@ export default function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="waitlist-title" ref={trapRef}>
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -44,6 +47,7 @@ export default function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
                 {/* Close button */}
                 <button
                     onClick={onClose}
+                    aria-label="Close"
                     className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -60,7 +64,7 @@ export default function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                                 </svg>
                             </div>
-                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                            <h2 id="waitlist-title" className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                                 Pro is Coming Soon! 🚀
                             </h2>
                             <p className="text-gray-600 dark:text-gray-400">

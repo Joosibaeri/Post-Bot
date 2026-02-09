@@ -5,6 +5,7 @@
  */
 
 import React, { useState } from 'react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface PostHistoryItem {
     id: string;
@@ -36,6 +37,8 @@ interface ScheduledPostItem {
 
 export default function HistoryModal({ isOpen, onClose, posts, scheduledPosts = [], loading = false }: HistoryModalProps) {
     const [activeTab, setActiveTab] = useState<'published' | 'scheduled'>('published');
+
+    const trapRef = useFocusTrap<HTMLDivElement>(isOpen);
 
     if (!isOpen) return null;
 
@@ -78,7 +81,7 @@ export default function HistoryModal({ isOpen, onClose, posts, scheduledPosts = 
                             </svg>
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Post History</h2>
+                            <h2 id="history-title" className="text-xl font-bold text-gray-900 dark:text-white">Post History</h2>
                             <p className="text-sm text-gray-500 dark:text-gray-400">
                                 {posts.length + scheduledPosts.length} total posts
                             </p>
@@ -86,6 +89,7 @@ export default function HistoryModal({ isOpen, onClose, posts, scheduledPosts = 
                     </div>
                     <button
                         onClick={onClose}
+                        aria-label="Close"
                         className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

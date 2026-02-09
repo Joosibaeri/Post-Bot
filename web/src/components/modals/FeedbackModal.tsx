@@ -7,15 +7,15 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { api } from '@/lib/api';
 import { showToast } from '@/lib/toast';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface FeedbackModalProps {
     isOpen: boolean;
     onClose: () => void;
     userId: string;
+    getToken?: () => Promise<string | null>;
     autoTriggered?: boolean;  // True if auto-triggered (enables auto-dismiss)
     autoDismissSeconds?: number;  // Default 35 seconds
 }
@@ -24,6 +24,7 @@ export function FeedbackModal({
     isOpen,
     onClose,
     userId,
+    getToken,
     autoTriggered = false,
     autoDismissSeconds = 35
 }: FeedbackModalProps) {
@@ -35,6 +36,7 @@ export function FeedbackModal({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [countdown, setCountdown] = useState(autoDismissSeconds);
     const [isPaused, setIsPaused] = useState(false);  // Pause countdown when user interacts
+    const trapRef = useFocusTrap<HTMLDivElement>(isOpen);
 
     // Auto-dismiss countdown for auto-triggered popups
     useEffect(() => {
@@ -82,13 +84,18 @@ export function FeedbackModal({
 
         setIsSubmitting(true);
         try {
-            const response = await axios.post(`${API_BASE}/api/feedback/submit`, {
+            const headers: Record<string, string> = {};
+            if (getToken) {
+                const token = await getToken();
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+            }
+            const response = await api.post(`/api/feedback/submit`, {
                 user_id: userId,
                 rating,
                 liked,
                 improvements,
                 suggestions
-            });
+            }, { headers });
 
             if (response.data.success) {
                 showToast.success('Thank you for your feedback! 🎉');
@@ -108,7 +115,7 @@ export function FeedbackModal({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" ref={trapRef}>
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -117,6 +124,9 @@ export function FeedbackModal({
 
             {/* Modal - Compact and scrollable */}
             <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="feedback-modal-title"
                 className="relative bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 rounded-2xl shadow-2xl max-w-md w-full max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-300"
                 onClick={handleInteraction}
             >

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CompactCharCounter } from '@/components/ui/CharacterCounter';
 import { showToast } from '@/lib/toast';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface PostPreviewModalProps {
     isOpen: boolean;
@@ -39,6 +40,7 @@ export function PostPreviewModal({
     userTitle = 'Your headline'
 }: PostPreviewModalProps) {
     const modalRef = useRef<HTMLDivElement>(null);
+    const trapRef = useFocusTrap<HTMLDivElement>(isOpen);
     const [copied, setCopied] = useState(false);
 
     // Close on escape key
@@ -118,6 +120,10 @@ export function PostPreviewModal({
         <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
             onClick={(e) => e.target === e.currentTarget && onClose()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="postpreview-title"
+            ref={trapRef}
         >
             <div
                 ref={modalRef}
@@ -126,7 +132,7 @@ export function PostPreviewModal({
             >
                 {/* Header - LinkedIn style */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="text-[16px] font-semibold text-[#000000e6] dark:text-white">
+                    <h3 id="postpreview-title" className="text-[16px] font-semibold text-[#000000e6] dark:text-white">
                         Preview your post
                     </h3>
                     <button
