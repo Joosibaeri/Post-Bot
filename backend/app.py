@@ -74,6 +74,13 @@ async def lifespan(app: FastAPI):
     """Application lifespan: startup and shutdown hooks."""
     # Startup
     await connect_db()
+    # Ensure all tables exist (safe for existing DBs - uses CREATE IF NOT EXISTS)
+    try:
+        from services.db import init_tables
+        await init_tables()
+        logger.info("Database tables verified")
+    except Exception as e:
+        logger.warning(f"Table init skipped (may use Alembic in production): {e}")
     logger.info("Application startup complete (Celery handles background tasks)")
     yield
     # Shutdown
