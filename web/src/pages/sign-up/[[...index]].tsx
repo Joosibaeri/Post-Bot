@@ -108,12 +108,15 @@ export default function SignUpPage() {
             </div>
 
             {/* Right Side - Sign Up Form */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-900 relative">
-                <div className="w-full max-w-md">
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 bg-gradient-to-br from-gray-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 relative overflow-hidden">
+                {/* Decorative Background Elements */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-purple-200/30 dark:bg-purple-800/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-indigo-200/30 dark:bg-indigo-800/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+
+                <div className="w-full max-w-md relative z-10">
                     {/* Mobile Logo */}
                     <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-                        <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                            {/* Lightning bolt - Post Bot logo */}
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
                             <svg className="w-6 h-6" viewBox="0 0 32 32" fill="none">
                                 <path d="M18 4l-8 12h6l-2 12 10-14h-6l4-10z" fill="white" stroke="white" strokeWidth="0.5" />
                             </svg>
@@ -121,74 +124,104 @@ export default function SignUpPage() {
                         <span className="text-xl font-bold text-gray-900 dark:text-white">Post Bot</span>
                     </div>
 
-                    {/* Theme Toggle */}
-                    <div className="absolute top-4 right-4">
+                    {/* Theme Toggle & Back */}
+                    <div className="absolute -top-2 right-0 flex items-center gap-2">
+                        <Link
+                            href="/"
+                            className="text-sm text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            title="Back to home"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1" />
+                            </svg>
+                        </Link>
                         <ThemeToggle />
                     </div>
 
                     {/* Header */}
-                    <div className="text-center mb-8">
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                    <div className="text-center mb-6">
+                        <div className="inline-flex items-center gap-2 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-medium px-3 py-1.5 rounded-full mb-4">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Free to get started
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
                             Create your account
                         </h2>
-                        <p className="text-gray-600 dark:text-gray-400">
-                            Start generating professional posts for free
+                        <p className="text-gray-500 dark:text-gray-400 text-sm">
+                            Start generating professional LinkedIn posts in minutes
                         </p>
                     </div>
 
-                    {/* Clerk Sign Up Component */}
-                    <div className="clerk-container">
-                        <SignUp
-                            path="/sign-up"
-                            routing="path"
-                            signInUrl="/sign-in"
-                            appearance={{
-                                elements: {
-                                    rootBox: "mx-auto w-full",
-                                    card: "shadow-none bg-transparent",
-                                    headerTitle: "hidden",
-                                    headerSubtitle: "hidden",
-                                    socialButtonsBlockButton: "bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors",
-                                    formButtonPrimary: "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all",
-                                    footerActionLink: "text-purple-600 hover:text-purple-700",
-                                    formFieldInput: "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 dark:text-white text-gray-900",
-                                    formFieldLabel: "text-gray-700 dark:text-gray-300",
-                                    identityPreviewEditButton: "text-purple-600",
-                                    formResendCodeLink: "text-purple-600",
-                                }
-                            }}
-                        />
+                    {/* Form Card */}
+                    <div className="bg-white/70 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-200/60 dark:border-gray-700/60 p-6 shadow-xl shadow-gray-200/40 dark:shadow-black/20">
+                        {/* Clerk Sign Up Component */}
+                        <div className="clerk-container">
+                            <SignUp
+                                path="/sign-up"
+                                routing="path"
+                                signInUrl="/sign-in"
+                                appearance={{
+                                    elements: {
+                                        rootBox: "mx-auto w-full",
+                                        card: "shadow-none bg-transparent p-0",
+                                        headerTitle: "hidden",
+                                        headerSubtitle: "hidden",
+                                        socialButtonsBlockButton: "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all shadow-sm hover:shadow-md",
+                                        formButtonPrimary: "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40",
+                                        footerActionLink: "text-purple-600 hover:text-purple-700",
+                                        formFieldInput: "bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 dark:text-white text-gray-900 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all",
+                                        formFieldLabel: "text-gray-700 dark:text-gray-300 font-medium",
+                                        identityPreviewEditButton: "text-purple-600",
+                                        formResendCodeLink: "text-purple-600",
+                                        dividerLine: "bg-gray-200 dark:bg-gray-600",
+                                        dividerText: "text-gray-400 dark:text-gray-500",
+                                        footer: "hidden",
+                                    }
+                                }}
+                            />
+                        </div>
                     </div>
 
-                    {/* Footer */}
-                    <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                        <p>
-                            Already have an account?{' '}
-                            <Link href="/sign-in" className="text-purple-600 hover:text-purple-700 font-medium">
-                                Sign in
-                            </Link>
-                        </p>
-                    </div>
-
-                    {/* Back to Home */}
-                    <div className="mt-6 text-center">
-                        <Link
-                            href="/"
-                            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 inline-flex items-center gap-1"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    {/* Trust Signals */}
+                    <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-400 dark:text-gray-500">
+                        <div className="flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
-                            Back to home
+                            <span>256-bit SSL</span>
+                        </div>
+                        <span className="text-gray-300 dark:text-gray-600">|</span>
+                        <div className="flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                            <span>SOC 2 compliant</span>
+                        </div>
+                        <span className="text-gray-300 dark:text-gray-600">|</span>
+                        <div className="flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>No credit card</span>
+                        </div>
+                    </div>
+
+                    {/* Footer Link */}
+                    <div className="mt-5 text-center text-sm text-gray-500 dark:text-gray-400">
+                        Already have an account?{' '}
+                        <Link href="/sign-in" className="text-purple-600 hover:text-purple-700 font-semibold hover:underline transition-colors">
+                            Sign in
                         </Link>
                     </div>
 
                     {/* Terms */}
-                    <div className="mt-6 text-center text-xs text-gray-400 dark:text-gray-500">
+                    <div className="mt-4 text-center text-xs text-gray-400 dark:text-gray-500">
                         By signing up, you agree to our{' '}
-                        <Link href="/terms" className="underline hover:text-gray-600">Terms of Service</Link>
+                        <Link href="/terms" className="underline hover:text-gray-600 dark:hover:text-gray-300 transition-colors">Terms of Service</Link>
                         {' '}and{' '}
-                        <Link href="/privacy" className="underline hover:text-gray-600">Privacy Policy</Link>
+                        <Link href="/privacy" className="underline hover:text-gray-600 dark:hover:text-gray-300 transition-colors">Privacy Policy</Link>
                     </div>
                 </div>
             </div>
