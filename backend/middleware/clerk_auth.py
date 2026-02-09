@@ -80,9 +80,13 @@ def verify_clerk_token(token: str) -> Optional[dict]:
     
     Returns None if verification fails.
     """
-    # Dev mode: only if EXPLICITLY enabled AND no issuer configured
+    # Dev mode: only if EXPLICITLY enabled AND no issuer configured AND NOT production
     DEV_MODE = os.getenv('DEV_MODE', 'false').lower() == 'true'
-    if not CLERK_ISSUER and DEV_MODE:
+    is_production = (
+        os.getenv('RENDER') or os.getenv('HEROKU') or os.getenv('PRODUCTION')
+        or os.getenv('ENVIRONMENT', '').lower() == 'production'
+    )
+    if not CLERK_ISSUER and DEV_MODE and not is_production:
         logger.warning("DEV MODE: Clerk not configured, using test user")
         return {"sub": "dev_user", "dev_mode": True}
     

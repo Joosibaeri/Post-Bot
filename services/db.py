@@ -38,7 +38,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # In production, DATABASE_URL is REQUIRED
 if not DATABASE_URL:
     # Check if we're in production (common indicators)
-    if os.getenv("RENDER") or os.getenv("HEROKU") or os.getenv("PRODUCTION"):
+    if os.getenv("RENDER") or os.getenv("HEROKU") or os.getenv("PRODUCTION") or os.getenv("ENVIRONMENT", "").lower() == "production":
         raise RuntimeError(
             "DATABASE_URL environment variable is required in production. "
             "Please configure your PostgreSQL connection string."

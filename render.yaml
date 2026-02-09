@@ -56,6 +56,8 @@ services:
       # Python Configuration
       - key: PYTHON_VERSION
         value: "3.11"
+      - key: ENVIRONMENT
+        value: production
       
       # Database (auto-populated by Render)
       - key: DATABASE_URL

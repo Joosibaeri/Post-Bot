@@ -22,8 +22,8 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Production Command: Use Gunicorn with Uvicorn workers
+# Production Command: Run Alembic migrations, then start Gunicorn with Uvicorn workers
 # -w 4: Use 4 worker processes (adjust based on CPU cores)
 # -k uvicorn.workers.UvicornWorker: Use async workers
 # --bind 0.0.0.0:8000: Listen on all interfaces
-CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "backend.app:app", "--bind", "0.0.0.0:8000"]
+CMD ["sh", "-c", "cd /app/backend && alembic upgrade head && cd /app && gunicorn -w 4 -k uvicorn.workers.UvicornWorker backend.app:app --bind 0.0.0.0:8000"]

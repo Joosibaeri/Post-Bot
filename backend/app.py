@@ -189,8 +189,25 @@ except ImportError as e:
 # =============================================================================
 @app.get("/health", tags=["Health"])
 async def health():
-    """Health check endpoint."""
-    return {"status": "healthy"}
+    """Health check endpoint with database connectivity verification."""
+    db_ok = False
+    try:
+        from services.db import database, IS_SQLITE
+        if database and database.is_connected:
+            if IS_SQLITE:
+                await database.execute("SELECT 1")
+            else:
+                await database.execute("SELECT 1")
+            db_ok = True
+    except Exception as e:
+        logger.warning("Health check DB probe failed: %s", e)
+
+    status = "healthy" if db_ok else "degraded"
+    code = 200 if db_ok else 503
+    return JSONResponse(
+        status_code=code,
+        content={"status": status, "database": "connected" if db_ok else "unavailable"},
+    )
 
 
 # =============================================================================

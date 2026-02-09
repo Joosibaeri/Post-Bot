@@ -85,11 +85,26 @@ TEMPLATES = [
 # ENVIRONMENT VALIDATION
 # =============================================================================
 def validate_environment() -> None:
-    """Validate required environment variables on startup."""
+    """Validate required environment variables on startup.
+    
+    In production, missing critical vars cause a hard failure.
+    In development, they produce warnings.
+    """
+    is_production = (
+        os.getenv('RENDER') or os.getenv('HEROKU') or os.getenv('PRODUCTION')
+        or os.getenv('ENVIRONMENT', '').lower() == 'production'
+    )
+
     required_vars = {
         "GROQ_API_KEY": "AI content generation",
         "LINKEDIN_CLIENT_ID": "LinkedIn OAuth",
         "LINKEDIN_CLIENT_SECRET": "LinkedIn OAuth",
+    }
+    
+    # These are only required in production
+    production_required = {
+        "ENCRYPTION_KEY": "Token encryption (Fernet)",
+        "CLERK_ISSUER": "JWT authentication",
     }
     
     optional_but_recommended = {
@@ -107,15 +122,25 @@ def validate_environment() -> None:
         if not os.getenv(var):
             missing_required.append(f"  - {var}: {purpose}")
     
+    if is_production:
+        for var, purpose in production_required.items():
+            if not os.getenv(var):
+                missing_required.append(f"  - {var}: {purpose}")
+    
     for var, purpose in optional_but_recommended.items():
         if not os.getenv(var):
             missing_optional.append(f"  - {var}: {purpose}")
     
     if missing_required:
-        logger.warning("Missing REQUIRED environment variables:")
-        for msg in missing_required:
-            logger.warning(msg)
-        logger.warning("Some features will not work until these are set.")
+        if is_production:
+            msg = "Missing REQUIRED environment variables in production:\n" + "\n".join(missing_required)
+            logger.error(msg)
+            raise RuntimeError(msg)
+        else:
+            logger.warning("Missing REQUIRED environment variables:")
+            for msg in missing_required:
+                logger.warning(msg)
+            logger.warning("Some features will not work until these are set.")
     
     if missing_optional:
         logger.info("Missing OPTIONAL environment variables:")

@@ -16,12 +16,14 @@ class TestHealthEndpoint:
     """Tests for the /health endpoint."""
     
     def test_health_returns_ok(self, sync_test_client: TestClient):
-        """Health endpoint should return status=healthy."""
+        """Health endpoint should return status with database field."""
         response = sync_test_client.get("/health")
         
-        assert response.status_code == 200
+        # In test environment DB may not be connected — accept 200 or 503
+        assert response.status_code in (200, 503)
         data = response.json()
-        assert data["status"] == "healthy"
+        assert data["status"] in ("healthy", "degraded")
+        assert "database" in data
     
     def test_health_response_format(self, sync_test_client: TestClient):
         """Health endpoint should return proper JSON structure."""
@@ -30,6 +32,7 @@ class TestHealthEndpoint:
         assert response.headers["content-type"] == "application/json"
         data = response.json()
         assert "status" in data
+        assert "database" in data
 
 
 class TestTemplatesEndpoint:

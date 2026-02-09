@@ -81,7 +81,7 @@ export default function Home() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
             </span>
-            New: GitHub Actions Integration
+            New: 4 AI Providers + Post Scheduling + Persona Engine
           </div>
 
           {/* Headline */}
@@ -231,10 +231,11 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-6 text-center">
             <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-8">Trusted by developers from</p>
             <div className="flex flex-wrap justify-center items-center gap-12 md:gap-20 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
-              {/* Replaced with text/svg placeholders for logos to avoid external image deps */}
               <div className="flex items-center gap-2 font-bold text-xl font-sans"><svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg> GitHub</div>
-              <div className="flex items-center gap-2 font-bold text-xl font-sans"><svg className="w-6 h-6" viewBox="0 0 76 65" fill="currentColor"><path d="M37.5274 0L75.0548 65H0L37.5274 0Z" /></svg> Vercel</div>
-              <div className="flex items-center gap-2 font-bold text-xl font-sans">Groq Cloud</div>
+              <div className="flex items-center gap-2 font-bold text-xl font-sans">Groq</div>
+              <div className="flex items-center gap-2 font-bold text-xl font-sans">OpenAI</div>
+              <div className="flex items-center gap-2 font-bold text-xl font-sans">Anthropic</div>
+              <div className="flex items-center gap-2 font-bold text-xl font-sans">Mistral</div>
               <div className="flex items-center gap-2 font-bold text-xl font-sans text-[#0A66C2]">LinkedIn</div>
             </div>
           </div>
@@ -249,9 +250,12 @@ export default function Home() {
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { title: 'Code to Content', desc: 'Automatically turn your Git commits and PRs into engaging stories.', icon: '🤖' },
-              { title: 'Brand Consistency', desc: 'Maintain a consistent posting schedule without breaking your flow.', icon: '📅' },
-              { title: 'Developer Focused', desc: 'Understands tech stack, languages, and open source culture.', icon: '⚡' }
+              { title: 'Multi-AI Generation', desc: 'Choose from 4 AI providers — Groq, OpenAI, Anthropic, or Mistral — to craft posts in your unique voice.', icon: '🤖' },
+              { title: 'Smart Scheduling', desc: 'Schedule posts for optimal times. Celery-powered queue ensures reliable delivery even when you\'re offline.', icon: '📅' },
+              { title: 'Persona Engine', desc: 'Build a writing persona from your style, tone, and topics. Every post sounds authentically you.', icon: '🧠' },
+              { title: 'Code to Content', desc: 'Automatically turn your Git commits, PRs, and releases into engaging LinkedIn stories.', icon: '⚡' },
+              { title: 'One-Click Publish', desc: 'Review AI-generated drafts, edit if needed, and publish directly to LinkedIn via OAuth.', icon: '🚀' },
+              { title: 'Stripe Payments', desc: 'Upgrade to Pro for unlimited posts, premium AI models, and advanced scheduling.', icon: '💳' }
             ].map((feature, i) => (
               <div key={i} className="group p-8 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 hover:border-blue-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/10">
                 <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">
@@ -543,12 +547,14 @@ export default function Home() {
             {[
               { name: 'GitHub', icon: '🐙', status: 'active', desc: 'Scan commits, PRs, releases' },
               { name: 'LinkedIn', icon: '💼', status: 'active', desc: 'Direct publishing via OAuth' },
-              { name: 'Groq AI', icon: '⚡', status: 'active', desc: 'Lightning-fast AI generation' },
+              { name: 'Groq AI', icon: '⚡', status: 'active', desc: 'Llama 3.3 70B — free tier' },
+              { name: 'OpenAI', icon: '🧠', status: 'active', desc: 'GPT-4o — Pro tier' },
+              { name: 'Anthropic', icon: '🤖', status: 'active', desc: 'Claude 3.5 Sonnet — Pro tier' },
+              { name: 'Mistral', icon: '🌀', status: 'active', desc: 'Mistral Large — Pro tier' },
               { name: 'Unsplash', icon: '📸', status: 'active', desc: 'Beautiful stock images' },
-              { name: 'GitLab', icon: '🦊', status: 'coming', desc: 'Coming Q1 2026' },
-              { name: 'Bitbucket', icon: '🪣', status: 'coming', desc: 'Coming Q1 2026' },
-              { name: 'Twitter/X', icon: '🐦', status: 'coming', desc: 'Coming Q2 2026' },
-              { name: 'Threads', icon: '🧵', status: 'coming', desc: 'Coming Q2 2026' }
+              { name: 'Stripe', icon: '💳', status: 'active', desc: 'Subscription payments' },
+              { name: 'GitLab', icon: '🦊', status: 'coming', desc: 'Coming Q3 2026' },
+              { name: 'Twitter/X', icon: '🐦', status: 'coming', desc: 'Coming Q3 2026' }
             ].map((integration, i) => (
               <div
                 key={i}
@@ -597,11 +603,11 @@ export default function Home() {
               <ul className="space-y-3 mb-8">
                 {[
                   '10 posts per month',
-                  '⚡ Groq AI content generation',
-                  'Bot scans last 24 hours only',
-                  'All activities (no filtering)',
-                  'Standard template only',
-                  'Manual publishing',
+                  '⚡ Groq AI (Llama 3.3 70B)',
+                  '🧠 Custom persona engine',
+                  '📅 Schedule up to 10 posts',
+                  'GitHub activity scanning',
+                  'Manual & scheduled publishing',
                   'Community support'
                 ].map((feature, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
@@ -631,7 +637,7 @@ export default function Home() {
               <ul className="space-y-3 mb-8 opacity-80">
                 {[
                   'Unlimited posts',
-                  '🧠 3 AI models (GPT-4, Claude, Gemini-3-flash)',
+                  '🧠 4 AI models (GPT-4o, Claude 3.5, Mistral, Groq)',
                   '📅 Custom time range (1-30 days)',
                   '🔍 Filter by activity type',
                   '📝 Commit message reading',
@@ -706,12 +712,12 @@ export default function Home() {
             {[
               {
                 q: 'Is PostBot really free?',
-                a: 'Yes! Our Free tier gives you 10 posts per day and 10 scheduled posts. No credit card required. Pro and Team tiers with unlimited posts are coming soon!'
+                a: 'Yes! Our Free tier gives you 10 posts per month, Groq AI generation, persona engine, and post scheduling. No credit card required. Pro tier unlocks unlimited posts, premium AI models (GPT-4o, Claude, Mistral), and advanced features.'
               },
 
               {
-                q: 'What AI model powers PostBot?',
-                a: 'We use Groq Cloud with the Llama 3 70B model for lightning-fast, high-quality content generation. You can also bring your own Groq API key.'
+                q: 'What AI models power PostBot?',
+                a: 'PostBot supports 4 AI providers: Groq (Llama 3.3 70B, free), OpenAI (GPT-4o), Anthropic (Claude 3.5 Sonnet), and Mistral (Mistral Large). Free users get Groq; Pro users can choose any provider.'
               },
               {
                 q: 'Is my data secure?',
@@ -945,7 +951,7 @@ export default function Home() {
               <span className="font-bold text-gray-900 dark:text-white">PostBot</span>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              © 2025 PostBot. Open Source under MIT License. Made with ❤️ by <a href="https://github.com/cliff-de-tech" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Cliff De-Tech</a>
+              © 2025-2026 PostBot. Open Source under MIT License. Made with ❤️ by <a href="https://github.com/cliff-de-tech" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Cliff De-Tech</a>
             </p>
           </div>
         </div>
