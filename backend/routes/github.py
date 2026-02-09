@@ -39,6 +39,9 @@ REQUEST_TIMEOUT = int(os.getenv('AUTH_REQUEST_TIMEOUT', '15'))
 
 auth_router = APIRouter(tags=["github-auth"])
 
+# Backend callback URL from environment 
+GITHUB_CALLBACK_URI = os.getenv("BACKEND_URL", "http://localhost:8000") + "/auth/github/callback"
+
 
 @auth_router.get('/auth/github/start')
 async def github_oauth_start(redirect_uri: str, user_id: str):
@@ -49,7 +52,7 @@ async def github_oauth_start(redirect_uri: str, user_id: str):
     Requested scopes: read:user, repo (for private repo access)
     
     Args:
-        redirect_uri: Where to redirect after auth
+        redirect_uri: Where to redirect after auth (validated, not passed to GitHub)
         user_id: Clerk user ID (stored in state for callback)
     """
     if not GITHUB_CLIENT_ID:
@@ -61,10 +64,11 @@ async def github_oauth_start(redirect_uri: str, user_id: str):
     # Request read:user and repo scope for private activity access
     scopes = "read:user,repo"
     
+    # Always use the server-registered callback URI (not from query param)
     auth_url = (
         f"https://github.com/login/oauth/authorize"
         f"?client_id={GITHUB_CLIENT_ID}"
-        f"&redirect_uri={redirect_uri}"
+        f"&redirect_uri={GITHUB_CALLBACK_URI}"
         f"&scope={scopes}"
         f"&state={state}"
     )

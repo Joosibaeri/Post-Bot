@@ -167,14 +167,13 @@ async def generate_preview(
     
     # Rate limiting check (10 requests/hour for AI generation)
     if RATE_LIMITING_ENABLED and post_generation_limiter and user_id:
-        if not post_generation_limiter.is_allowed(user_id):
-            remaining = post_generation_limiter.get_remaining(user_id)
-            reset_time = post_generation_limiter.get_reset_time(user_id)
-            return {
-                "error": "Rate limit exceeded for post generation",
-                "remaining": remaining,
-                "reset_in_seconds": int(reset_time) if reset_time else None
-            }
+        allowed, rate_info = post_generation_limiter.is_allowed(user_id)
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded for post generation",
+                headers={"Retry-After": str(rate_info.get('retry_after', 60))}
+            )
     
     # Get user's API keys if user_id available
     groq_api_key = None
@@ -230,7 +229,10 @@ async def generate_preview(
 
 
 @router.post("/generate-batch")
-async def generate_batch(req: BatchGenerateRequest):
+async def generate_batch(
+    req: BatchGenerateRequest,
+    current_user: dict = Depends(get_current_user) if get_current_user else None
+):
     """Generate multiple posts for Bot Mode.
     
     Takes a list of GitHub activities and generates posts for each one.
@@ -243,7 +245,12 @@ async def generate_batch(req: BatchGenerateRequest):
     if not generate_linkedin_post and not generate_post_with_ai:
         return {"error": "AI service not available (import failed)"}
     
+    # Use authenticated user_id if available, otherwise fall back to request body
     user_id = req.user_id
+    if current_user and current_user.get("user_id"):
+        user_id = current_user["user_id"]
+        if user_id != req.user_id:
+            raise HTTPException(status_code=403, detail="Cannot generate posts for other users")
     activities = req.activities
     style = req.style or "standard"
     model = req.model or "groq"
@@ -267,8 +274,6 @@ async def generate_batch(req: BatchGenerateRequest):
     if user_id and build_full_persona_context:
         try:
             persona_context = await build_full_persona_context(user_id)
-        except Exception as e:
-            logger.warning("failed_to_get_persona", error=str(e))
         except Exception as e:
             logger.warning("failed_to_get_persona", error=str(e))
     
@@ -466,29 +471,39 @@ async def list_providers(
 
 
 @router.post("/publish")
-async def publish(req: PostRequest):
+async def publish(
+    req: PostRequest,
+    current_user: dict = Depends(get_current_user) if get_current_user else None
+):
     """Publish a post to LinkedIn."""
     if not generate_post_with_ai:
-        return {"error": "generate_post_with_ai not available (import failed)"}
+        raise HTTPException(status_code=503, detail="AI service not available")
+
+    # Use authenticated user_id if available
+    user_id = None
+    if current_user and current_user.get("user_id"):
+        user_id = current_user["user_id"]
+    elif req.user_id:
+        user_id = req.user_id
 
     # Get user's Groq API key if user_id provided
     groq_api_key = None
     user_settings = None
-    if req.user_id and get_user_settings:
+    if user_id and get_user_settings:
         try:
-            user_settings = await get_user_settings(req.user_id)
+            user_settings = await get_user_settings(user_id)
             if user_settings:
                 groq_api_key = user_settings.get('groq_api_key')
         except Exception as e:
-            print(f"Failed to get user settings: {e}")
+            logger.warning("failed_to_get_user_settings", error=str(e))
     
     # Get user's persona context
     persona_context = None
-    if req.user_id and build_full_persona_context:
+    if user_id and build_full_persona_context:
         try:
-            persona_context = await build_full_persona_context(req.user_id)
+            persona_context = await build_full_persona_context(user_id)
         except Exception as e:
-            print(f"Failed to get persona: {type(e).__name__}")
+            logger.warning("failed_to_get_persona", error=str(e))
 
     post = generate_post_with_ai(req.context, groq_api_key=groq_api_key, persona_context=persona_context)
     if not post:
@@ -497,72 +512,21 @@ async def publish(req: PostRequest):
     if req.test_mode:
         return {"status": "preview", "post": post}
 
-    # Actual publishing logic
+    # Actual publishing logic - ONLY use user's own token
     image_data = None
     image_asset = None
 
-    # First try: use user's specific token
-    if req.user_id and get_token_by_user_id:
-        try:
-            user_token = await get_token_by_user_id(req.user_id)
-            if user_token:
-                linkedin_urn = user_token.get('linkedin_user_urn')
-                token = user_token.get('access_token')
-                
-                if get_relevant_image and token:
-                    image_data = get_relevant_image(post)
-                if image_data and upload_image_to_linkedin and token:
-                    image_asset = upload_image_to_linkedin(image_data, access_token=token, linkedin_user_urn=linkedin_urn)
-                if post_to_linkedin and token:
-                    post_to_linkedin(post, image_asset, access_token=token, linkedin_user_urn=linkedin_urn)
-                return {"status": "posted", "post": post, "image_asset": image_asset, "account": linkedin_urn}
-        
-        except TokenNotFoundError as e:
-            logger.warning("token_not_found", user_id=req.user_id, error=str(e))
-            raise HTTPException(status_code=401, detail="LinkedIn not connected. Please reconnect your account.")
-        
-        except TokenRefreshError as e:
-            logger.warning("token_refresh_failed", user_id=req.user_id, error=str(e))
-            raise HTTPException(status_code=401, detail="LinkedIn session expired. Please reconnect your account.")
-        
-        except AuthProviderError as e:
-            logger.error("linkedin_api_unavailable", user_id=req.user_id, error=str(e))
-            raise HTTPException(status_code=502, detail="LinkedIn is temporarily unavailable. Please try again later.")
-        
-        except Exception as e:
-            logger.error("token_retrieval_failed", user_id=req.user_id, error=str(e))
-            # Continue to fallback instead of failing
+    if not user_id or not get_token_by_user_id:
+        raise HTTPException(status_code=401, detail="Authentication required to publish")
 
-    # Fallback: use first stored account or environment-based service
-    accounts = []
     try:
-        accounts = await get_all_tokens() if get_all_tokens else []
-    except Exception as e:
-        logger.debug(f"Failed to get tokens: {e}")
-        accounts = []
-
-    if accounts:
-        account = accounts[0]
-        linkedin_urn = account.get('linkedin_user_urn')
-        try:
-            token = await get_access_token_for_urn(linkedin_urn)
-        
-        except TokenNotFoundError as e:
-            logger.warning("fallback_token_not_found", linkedin_urn=linkedin_urn, error=str(e))
+        user_token = await get_token_by_user_id(user_id)
+        if not user_token or not user_token.get('access_token'):
             raise HTTPException(status_code=401, detail="LinkedIn not connected. Please reconnect your account.")
         
-        except TokenRefreshError as e:
-            logger.warning("fallback_token_refresh_failed", linkedin_urn=linkedin_urn, error=str(e))
-            raise HTTPException(status_code=401, detail="LinkedIn session expired. Please reconnect your account.")
+        linkedin_urn = user_token.get('linkedin_user_urn')
+        token = user_token.get('access_token')
         
-        except AuthProviderError as e:
-            logger.error("fallback_linkedin_unavailable", linkedin_urn=linkedin_urn, error=str(e))
-            raise HTTPException(status_code=502, detail="LinkedIn is temporarily unavailable. Please try again later.")
-        
-        except Exception as e:
-            logger.error("fallback_token_error", linkedin_urn=linkedin_urn, error=str(e))
-            token = None
-
         if get_relevant_image and token:
             image_data = get_relevant_image(post)
         if image_data and upload_image_to_linkedin and token:
@@ -570,20 +534,37 @@ async def publish(req: PostRequest):
         if post_to_linkedin and token:
             post_to_linkedin(post, image_asset, access_token=token, linkedin_user_urn=linkedin_urn)
         return {"status": "posted", "post": post, "image_asset": image_asset, "account": linkedin_urn}
-
-    # Final fallback: environment-based linkedin service
-    if get_relevant_image:
-        image_data = get_relevant_image(post)
-    if image_data and upload_image_to_linkedin:
-        image_asset = upload_image_to_linkedin(image_data)
-    if post_to_linkedin:
-        post_to_linkedin(post, image_asset)
-    return {"status": "posted", "post": post, "image_asset": image_asset}
+    
+    except TokenNotFoundError as e:
+        logger.warning("token_not_found", user_id=user_id, error=str(e))
+        raise HTTPException(status_code=401, detail="LinkedIn not connected. Please reconnect your account.")
+    
+    except TokenRefreshError as e:
+        logger.warning("token_refresh_failed", user_id=user_id, error=str(e))
+        raise HTTPException(status_code=401, detail="LinkedIn session expired. Please reconnect your account.")
+    
+    except AuthProviderError as e:
+        logger.error("linkedin_api_unavailable", user_id=user_id, error=str(e))
+        raise HTTPException(status_code=502, detail="LinkedIn is temporarily unavailable. Please try again later.")
+    
+    except HTTPException:
+        raise
+    
+    except Exception as e:
+        logger.error("publish_failed", user_id=user_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to publish post")
 
 
 @router.post("/schedule")
-async def schedule(req: ScheduleRequest):
+async def schedule(
+    req: ScheduleRequest,
+    current_user: dict = Depends(get_current_user) if get_current_user else None
+):
     """Schedule a post for later publishing."""
+    # Verify ownership
+    if current_user and current_user.get("user_id") != req.user_id:
+        raise HTTPException(status_code=403, detail="Cannot schedule posts for other users")
+    
     if not schedule_post:
         raise HTTPException(status_code=500, detail="Schedule service not available")
 

@@ -35,6 +35,30 @@ router = APIRouter(prefix="/api", tags=["linkedin"])
 # OAuth router without /api prefix
 auth_router = APIRouter(tags=["linkedin-auth"])
 
+# Trusted redirect domains (add your production domains here)
+ALLOWED_REDIRECT_DOMAINS = [
+    "localhost:3000",
+    "localhost:8000",
+    os.getenv("FRONTEND_DOMAIN", "localhost:3000"),
+]
+
+# Backend callback URL from environment
+BACKEND_CALLBACK_URI = os.getenv("BACKEND_URL", "http://localhost:8000") + "/auth/linkedin/callback"
+DEFAULT_FRONTEND_REDIRECT = os.getenv("FRONTEND_URL", "http://localhost:3000") + "/settings"
+
+
+def _validate_redirect_url(url: str) -> str:
+    """Validate redirect URL against allowlist of trusted domains."""
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url)
+        host = parsed.netloc or parsed.hostname or ""
+        if any(domain in host for domain in ALLOWED_REDIRECT_DOMAINS if domain):
+            return url
+    except Exception:
+        pass
+    return DEFAULT_FRONTEND_REDIRECT
+
 
 @auth_router.get('/auth/linkedin/start')
 async def linkedin_start(redirect_uri: str, user_id: str = None):
@@ -48,7 +72,7 @@ async def linkedin_start(redirect_uri: str, user_id: str = None):
     
     # Store user_id and frontend redirect_uri in state
     # Format: user_id|frontend_redirect_uri|random_state
-    safe_redirect = redirect_uri or "http://localhost:3000/settings"
+    safe_redirect = _validate_redirect_url(redirect_uri or DEFAULT_FRONTEND_REDIRECT)
     safe_user_id = user_id or ""
     
     # Simple delimiter-based state
@@ -56,7 +80,7 @@ async def linkedin_start(redirect_uri: str, user_id: str = None):
     state = base64.urlsafe_b64encode(state_payload.encode()).decode()
     
     # The callback URI registered in LinkedIn Developer Portal MUST match this
-    backend_callback_uri = "http://localhost:8000/auth/linkedin/callback"
+    backend_callback_uri = BACKEND_CALLBACK_URI
     
     # Try to use per-user credentials if user_id provided
     if user_id:
@@ -89,11 +113,11 @@ async def linkedin_callback(code: str = None, state: str = None, redirect_uri: s
     Or on error: {frontend_redirect}?linkedin_success=false&error=...
     """
     # Default redirect if decoding fails
-    frontend_redirect = "http://localhost:3000/settings"
+    frontend_redirect = DEFAULT_FRONTEND_REDIRECT
     user_id = None
     
     # Define the backend callback URI that must be used for exchange
-    backend_callback_uri = "http://localhost:8000/auth/linkedin/callback"
+    backend_callback_uri = BACKEND_CALLBACK_URI
     
     # Decode state to get user_id and frontend_redirect
     if state:
@@ -107,10 +131,7 @@ async def linkedin_callback(code: str = None, state: str = None, redirect_uri: s
                 if user_id_part:
                     user_id = user_id_part
                 if redirect_part and (redirect_part.startswith('http') or redirect_part.startswith('/')):
-                    frontend_redirect = redirect_part
-                    # Clean up any Double encoding if present
-                    if 'localhost:8000' in frontend_redirect:
-                         frontend_redirect = "http://localhost:3000/settings"
+                    frontend_redirect = _validate_redirect_url(redirect_part)
             
             # Legacy state support (user_id:random) - in case old link used
             elif ':' in decoded:

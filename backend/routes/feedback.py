@@ -43,10 +43,16 @@ except ImportError:
 class FeedbackRequest(BaseModel):
     """Request model for feedback submission."""
     user_id: str
-    rating: int  # 1-5 stars
+    rating: int  # 1-5 stars - validated by Field
     liked: Optional[str] = None
     improvements: str  # Required
     suggestions: Optional[str] = None
+    
+    class Config:
+        @staticmethod
+        def json_schema_extra(schema: dict) -> None:
+            schema['properties']['rating']['minimum'] = 1
+            schema['properties']['rating']['maximum'] = 5
 
 
 # =============================================================================
@@ -59,6 +65,10 @@ async def submit_feedback(req: FeedbackRequest):
         return {"error": "Feedback service not available"}
     
     try:
+        # Validate rating range
+        if req.rating < 1 or req.rating > 5:
+            return {"success": False, "error": "Rating must be between 1 and 5"}
+        
         # Save to database
         result = save_feedback(
             user_id=req.user_id,

@@ -8,16 +8,24 @@ Handles:
 - GET /api/connection-status/{user_id} - Get connection status
 """
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, Dict, Any
 import logging
+
+from middleware.clerk_auth import require_auth, get_current_user
 
 # =============================================================================
 # ROUTER SETUP
 # =============================================================================
 router = APIRouter(prefix="/api", tags=["Settings"])
 logger = logging.getLogger(__name__)
+
+
+def _verify_user_ownership(current_user: dict, user_id: str):
+    """Verify the authenticated user owns the requested resource."""
+    if current_user and current_user.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Cannot access other user's data")
 
 # =============================================================================
 # SERVICE IMPORTS
@@ -51,7 +59,8 @@ class SettingsRequest(BaseModel):
 # SETTINGS ENDPOINTS
 # =============================================================================
 @router.get("/settings/{user_id}")
-async def get_settings(user_id: str):
+async def get_settings(user_id: str, current_user: dict = Depends(require_auth)):
+    _verify_user_ownership(current_user, user_id)
     """
     Get user settings including persona.
     
@@ -89,7 +98,7 @@ async def get_settings(user_id: str):
 
 
 @router.post("/settings")
-async def save_settings_body(req: SettingsRequest):
+async def save_settings_body(req: SettingsRequest, current_user: dict = Depends(require_auth)):
     """
     Save user settings from request body.
     
@@ -97,6 +106,10 @@ async def save_settings_body(req: SettingsRequest):
     """
     if not save_user_settings:
         raise HTTPException(status_code=503, detail="Settings service not available")
+    
+    # Verify ownership if user_id is provided
+    if req.user_id:
+        _verify_user_ownership(current_user, req.user_id)
     
     if not req.user_id:
         raise HTTPException(status_code=400, detail="user_id is required")
@@ -120,7 +133,8 @@ async def save_settings_body(req: SettingsRequest):
 
 
 @router.post("/settings/{user_id}")
-async def save_settings_path(user_id: str, req: SettingsRequest):
+async def save_settings_path(user_id: str, req: SettingsRequest, current_user: dict = Depends(require_auth)):
+    _verify_user_ownership(current_user, user_id)
     """
     Save user settings with user_id from path.
     
@@ -150,14 +164,15 @@ async def save_settings_path(user_id: str, req: SettingsRequest):
 # USAGE ENDPOINT (for usage bar: X/10 posts)
 # =============================================================================
 @router.get("/usage/{user_id}")
-async def get_usage(user_id: str, timezone: str = "UTC"):
+async def get_usage(user_id: str, timezone: str = "UTC", current_user: dict = Depends(require_auth)):
+    _verify_user_ownership(current_user, user_id)
     """
     Get usage stats for the daily limit bar.
     
     Returns posts used today out of daily limit (10 for free, 50 for pro).
     """
     import time
-    from datetime import datetime
+    from datetime import datetime, timezone as tz, timedelta
     
     try:
         from services.db import get_database
@@ -175,7 +190,7 @@ async def get_usage(user_id: str, timezone: str = "UTC"):
         scheduled_limit = 3 if tier == "free" else 20
         
         # Count posts today (using UTC midnight as reset)
-        now = datetime.utcnow()
+        now = datetime.now(tz.utc)
         midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
         midnight_ts = int(midnight.timestamp())
         
@@ -193,7 +208,7 @@ async def get_usage(user_id: str, timezone: str = "UTC"):
         scheduled_count = scheduled_result['count'] if scheduled_result else 0
         
         # Calculate reset time (next midnight UTC)
-        tomorrow_midnight = midnight.replace(day=now.day + 1) if now.day < 28 else midnight
+        tomorrow_midnight = midnight + timedelta(days=1)
         resets_in = int((tomorrow_midnight - now).total_seconds())
         
         return {
@@ -227,7 +242,8 @@ async def get_usage(user_id: str, timezone: str = "UTC"):
 # STATS ENDPOINT
 # =============================================================================
 @router.get("/stats/{user_id}")
-async def get_stats(user_id: str):
+async def get_stats(user_id: str, current_user: dict = Depends(require_auth)):
+    _verify_user_ownership(current_user, user_id)
     """
     Get dashboard stats for a user.
     
@@ -334,7 +350,8 @@ async def get_stats(user_id: str):
 # CONNECTION STATUS ENDPOINT
 # =============================================================================
 @router.get("/connection-status/{user_id}")
-async def get_connection_status(user_id: str):
+async def get_connection_status(user_id: str, current_user: dict = Depends(require_auth)):
+    _verify_user_ownership(current_user, user_id)
     """
     Get connection status for LinkedIn and GitHub.
     
@@ -439,7 +456,8 @@ class PostCreateRequest(BaseModel):
 
 
 @router.post("/posts")
-async def create_post(req: PostCreateRequest):
+async def create_post(req: PostCreateRequest, current_user: dict = Depends(require_auth)):
+    _verify_user_ownership(current_user, req.user_id)
     """
     Create/save a new post record.
     """
@@ -463,7 +481,8 @@ async def create_post(req: PostCreateRequest):
 
 
 @router.get("/scheduled-posts/{user_id}")
-async def get_scheduled_posts(user_id: str):
+async def get_scheduled_posts(user_id: str, current_user: dict = Depends(require_auth)):
+    _verify_user_ownership(current_user, user_id)
     """
     Get scheduled posts for a user.
     """
@@ -608,7 +627,8 @@ async def get_templates():
 # POSTS HISTORY ENDPOINT
 # =============================================================================
 @router.get("/posts/{user_id}")
-async def get_posts_history(user_id: str, limit: int = 10):
+async def get_posts_history(user_id: str, limit: int = 10, current_user: dict = Depends(require_auth)):
+    _verify_user_ownership(current_user, user_id)
     """Get post history for a user."""
     try:
         from services.db import get_database
@@ -630,7 +650,7 @@ async def get_posts_history(user_id: str, limit: int = 10):
 # =============================================================================
 # SCHEDULED POSTS CRUD
 # =============================================================================
-class ScheduleRequest(BaseModel):
+class SettingsScheduleRequest(BaseModel):
     user_id: str
     post_content: str
     scheduled_time: int
@@ -639,7 +659,8 @@ class ScheduleRequest(BaseModel):
 
 
 @router.post("/scheduled")
-async def schedule_post(req: ScheduleRequest):
+async def schedule_post(req: SettingsScheduleRequest, current_user: dict = Depends(require_auth)):
+    _verify_user_ownership(current_user, req.user_id)
     """Schedule a post for later."""
     import time
     try:
@@ -658,7 +679,8 @@ async def schedule_post(req: ScheduleRequest):
 
 
 @router.get("/scheduled/{user_id}")
-async def get_scheduled(user_id: str):
+async def get_scheduled(user_id: str, current_user: dict = Depends(require_auth)):
+    _verify_user_ownership(current_user, user_id)
     """Get scheduled posts for a user."""
     try:
         from services.db import get_database
@@ -675,7 +697,8 @@ async def get_scheduled(user_id: str):
 
 
 @router.delete("/scheduled/{post_id}")
-async def delete_scheduled(post_id: int, user_id: str):
+async def delete_scheduled(post_id: int, user_id: str, current_user: dict = Depends(require_auth)):
+    _verify_user_ownership(current_user, user_id)
     """Delete a scheduled post."""
     try:
         from services.db import get_database
@@ -699,7 +722,8 @@ class PublishFullRequest(BaseModel):
 
 
 @router.post("/publish/full")
-async def publish_full(req: PublishFullRequest):
+async def publish_full(req: PublishFullRequest, current_user: dict = Depends(require_auth)):
+    _verify_user_ownership(current_user, req.user_id)
     """Publish a post with optional image to LinkedIn."""
     try:
         logger.info(f"Publish request: user_id={req.user_id}, test_mode={req.test_mode}")
@@ -772,7 +796,7 @@ async def publish_full(req: PublishFullRequest):
 # =============================================================================
 class ContactRequest(BaseModel):
     name: str
-    email: str
+    email: str = Field(..., pattern=r'^[\w.+-]+@[\w-]+\.[\w.]+$')
     subject: Optional[str] = "General Inquiry"
     message: str
 

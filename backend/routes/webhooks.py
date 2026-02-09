@@ -23,8 +23,11 @@ import os
 import json
 import hmac
 import hashlib
+import logging
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # ROUTER SETUP
@@ -49,8 +52,8 @@ def verify_clerk_signature(payload: bytes, headers: dict) -> bool:
         True if signature is valid, False otherwise
     """
     if not CLERK_WEBHOOK_SECRET:
-        print("⚠️  CLERK_WEBHOOK_SECRET not configured - skipping verification in dev mode")
-        return True  # Allow in development (remove in production!)
+        logger.error("CLERK_WEBHOOK_SECRET not configured - rejecting webhook")
+        return False
     
     # Svix webhook headers
     svix_id = headers.get('svix-id', '')
@@ -58,7 +61,7 @@ def verify_clerk_signature(payload: bytes, headers: dict) -> bool:
     svix_signature = headers.get('svix-signature', '')
     
     if not all([svix_id, svix_timestamp, svix_signature]):
-        print("❌ Missing Svix headers")
+        logger.warning("Missing Svix headers in webhook request")
         return False
     
     # Construct the signed payload
@@ -92,7 +95,7 @@ def verify_clerk_signature(payload: bytes, headers: dict) -> bool:
         
         return False
     except Exception as e:
-        print(f"❌ Signature verification error: {e}")
+        logger.error(f"Signature verification error: {e}")
         return False
 
 
@@ -127,7 +130,7 @@ async def handle_clerk_webhook(request: Request):
     data = payload.get('data', {})
     user_id = data.get('id', '')
     
-    print(f"📨 Clerk webhook received: {event_type}")
+    logger.info(f"Clerk webhook received: {event_type}")
     
     # Handle user.deleted event
     if event_type == 'user.deleted':
@@ -152,7 +155,7 @@ async def handle_clerk_webhook(request: Request):
                 }
             )
         except Exception as e:
-            print(f"❌ Error cleaning up user data: {e}")
+            logger.error(f"Error cleaning up user data: {e}")
             # Return 200 to prevent Clerk from retrying
             # (the data can be cleaned up manually if needed)
             return JSONResponse(
@@ -166,7 +169,7 @@ async def handle_clerk_webhook(request: Request):
     
     # Handle user.created (just log)
     elif event_type == 'user.created':
-        print(f"👤 New user created: {user_id[:8]}...")
+        logger.info(f"New user created: {user_id[:8]}...")
         return JSONResponse(
             status_code=200,
             content={"status": "success", "event": event_type}
@@ -174,7 +177,7 @@ async def handle_clerk_webhook(request: Request):
     
     # Handle user.updated (just log)
     elif event_type == 'user.updated':
-        print(f"👤 User updated: {user_id[:8]}...")
+        logger.info(f"User updated: {user_id[:8]}...")
         return JSONResponse(
             status_code=200,
             content={"status": "success", "event": event_type}
@@ -182,7 +185,7 @@ async def handle_clerk_webhook(request: Request):
     
     # Unknown event type
     else:
-        print(f"⚠️  Unhandled webhook event: {event_type}")
+        logger.warning(f"Unhandled webhook event: {event_type}")
         return JSONResponse(
             status_code=200,
             content={"status": "ignored", "event": event_type}
