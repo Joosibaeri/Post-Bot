@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { useUser, useAuth } from '@clerk/nextjs';
-import axios from 'axios';
+import { api } from '@/lib/api';
 import { showToast } from '@/lib/toast';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Quiz options matching PersonaSettings
 const TONE_OPTIONS = [
@@ -58,7 +56,7 @@ export default function PersonaQuiz({ onComplete, onSkip }: PersonaQuizProps) {
         setSaving(true);
         try {
             const token = await getToken();
-            await axios.post(`${API_BASE}/api/settings/${user?.id}`,
+            await api.post(`/api/settings/${user?.id}`,
                 { persona },
                 { headers: { Authorization: `Bearer ${token}` } }
             );

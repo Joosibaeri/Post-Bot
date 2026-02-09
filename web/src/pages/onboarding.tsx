@@ -12,18 +12,19 @@
  */
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import axios from 'axios';
 import { useUser } from '@clerk/nextjs';
+import { api } from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import SEOHead from '@/components/SEOHead';
 import ThemeToggle from '@/components/ThemeToggle';
 import PersonaQuiz from '@/components/settings/PersonaQuiz';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 
 export default function Onboarding() {
   const router = useRouter();
   const { user, isLoaded, isSignedIn } = useUser();
+
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -85,7 +86,7 @@ export default function Onboarding() {
 
     const checkSettings = async () => {
       try {
-        const response = await axios.get(`${API_BASE}/api/connection-status/${userId}`);
+        const response = await api.get(`/api/connection-status/${userId}`);
         if (response.data && !response.data.error) {
           if (response.data.github_username) {
             setGithubUsername(response.data.github_username);
@@ -118,7 +119,7 @@ export default function Onboarding() {
     const timeoutId = setTimeout(async () => {
       setIsSavingUsername(true);
       try {
-        await axios.post(`${API_BASE}/api/settings`, {
+        await api.post('/api/settings', {
           user_id: userId,
           github_username: githubUsername.trim()
         });
@@ -142,12 +143,13 @@ export default function Onboarding() {
 
     const toastId = showToast.loading('Connecting to LinkedIn...');
     try {
-      await axios.get(`${API_BASE}/health`, { timeout: 2000 });
+      await api.get('/health', { timeout: 2000 });
       showToast.dismiss(toastId);
 
       // Redirect to LinkedIn OAuth
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const redirectUri = `${window.location.origin}/onboarding`;
-      window.location.href = `${API_BASE}/auth/linkedin/start?redirect_uri=${encodeURIComponent(redirectUri)}&user_id=${encodeURIComponent(userId)}`;
+      window.location.href = `${apiBase}/auth/linkedin/start?redirect_uri=${encodeURIComponent(redirectUri)}&user_id=${encodeURIComponent(userId)}`;
     } catch (error) {
       showToast.dismiss(toastId);
       showToast.error('Server is starting up. Please try again in a moment.');
@@ -162,15 +164,16 @@ export default function Onboarding() {
 
     const toastId = showToast.loading('Connecting to GitHub...');
     try {
-      await axios.get(`${API_BASE}/health`, { timeout: 2000 });
+      await api.get('/health', { timeout: 2000 });
       showToast.dismiss(toastId);
 
       // Mark that we're coming from onboarding for the callback page
       localStorage.setItem('github_oauth_from_onboarding', 'true');
 
       // Redirect to GitHub OAuth
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const redirectUri = `${window.location.origin}/auth/github/callback`;
-      window.location.href = `${API_BASE}/auth/github/start?redirect_uri=${encodeURIComponent(redirectUri)}&user_id=${encodeURIComponent(userId)}`;
+      window.location.href = `${apiBase}/auth/github/start?redirect_uri=${encodeURIComponent(redirectUri)}&user_id=${encodeURIComponent(userId)}`;
     } catch (error) {
       showToast.dismiss(toastId);
       showToast.error('Server is starting up. Please try again in a moment.');
@@ -184,7 +187,7 @@ export default function Onboarding() {
     const toastId = showToast.loading('Saving...');
 
     try {
-      await axios.post(`${API_BASE}/api/settings`, {
+      await api.post('/api/settings', {
         user_id: userId,
         github_username: githubUsername.trim(),
         onboarding_complete: true

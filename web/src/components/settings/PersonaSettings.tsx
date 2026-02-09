@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUser, useAuth } from '@clerk/nextjs';
-import axios from 'axios';
+import { api } from '@/lib/api';
 import { showToast } from '@/lib/toast';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Persona options
 const TONE_OPTIONS = [
@@ -59,7 +57,7 @@ export default function PersonaSettings() {
     const loadPersona = async () => {
         try {
             const token = await getToken();
-            const response = await axios.get(`${API_BASE}/api/settings/${user?.id}`, {
+            const response = await api.get(`/api/settings/${user?.id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.data?.persona) {
@@ -76,7 +74,7 @@ export default function PersonaSettings() {
         setSaving(true);
         try {
             const token = await getToken();
-            await axios.post(`${API_BASE}/api/settings/${user?.id}`,
+            await api.post(`/api/settings/${user?.id}`,
                 { persona },
                 { headers: { Authorization: `Bearer ${token}` } }
             );

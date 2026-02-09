@@ -10,14 +10,12 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
-import axios from 'axios';
+import { api } from '@/lib/api';
 import { useUser, UserButton, useAuth } from '@clerk/nextjs';
 import { showToast } from '@/lib/toast';
 import SEOHead from '@/components/SEOHead';
 import ThemeToggle from '@/components/ThemeToggle';
 import PersonaSettings from '@/components/settings/PersonaSettings';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface ConnectionStatus {
   linkedin_connected: boolean;
@@ -95,7 +93,7 @@ export default function Settings() {
     setLoading(true);
     try {
       const token = await getToken();
-      const response = await axios.get(`${API_BASE}/api/connection-status/${userId}`, {
+      const response = await api.get(`/api/connection-status/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data && !response.data.error) {
@@ -132,11 +130,11 @@ export default function Settings() {
 
     const toastId = showToast.loading('Connecting to LinkedIn...');
     try {
-      await axios.get(`${API_BASE}/health`, { timeout: 2000 });
+      await api.get(`/health`, { timeout: 2000 });
       showToast.dismiss(toastId);
       // LinkedIn requires exact match of registered redirect_uri (no query params)
       const redirectUri = `${window.location.origin}/settings`;
-      window.location.href = `${API_BASE}/auth/linkedin/start?redirect_uri=${encodeURIComponent(redirectUri)}&user_id=${encodeURIComponent(userId)}`;
+      window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/linkedin/start?redirect_uri=${encodeURIComponent(redirectUri)}&user_id=${encodeURIComponent(userId)}`;
     } catch (error) {
       showToast.dismiss(toastId);
       showToast.error('Backend server is unreachable.');
@@ -146,7 +144,7 @@ export default function Settings() {
   const handleDisconnectLinkedIn = async () => {
     try {
       const token = await getToken();
-      await axios.post(`${API_BASE}/api/disconnect-linkedin`, { user_id: userId }, {
+      await api.post(`/api/disconnect-linkedin`, { user_id: userId }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       localStorage.removeItem('linkedin_user_urn');
@@ -166,10 +164,10 @@ export default function Settings() {
 
     const toastId = showToast.loading('Connecting to GitHub...');
     try {
-      await axios.get(`${API_BASE}/health`, { timeout: 2000 });
+      await api.get(`/health`, { timeout: 2000 });
       showToast.dismiss(toastId);
       const redirectUri = `${window.location.origin}/auth/github/callback`;
-      window.location.href = `${API_BASE}/auth/github/start?redirect_uri=${encodeURIComponent(redirectUri)}&user_id=${encodeURIComponent(userId)}`;
+      window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/github/start?redirect_uri=${encodeURIComponent(redirectUri)}&user_id=${encodeURIComponent(userId)}`;
     } catch (error) {
       showToast.dismiss(toastId);
       showToast.error('Backend server is unreachable.');
@@ -179,7 +177,7 @@ export default function Settings() {
   const handleDisconnectGitHub = async () => {
     try {
       const token = await getToken();
-      await axios.post(`${API_BASE}/api/disconnect-github`, { user_id: userId }, {
+      await api.post(`/api/disconnect-github`, { user_id: userId }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setConnectionStatus(prev => ({ ...prev, github_oauth_connected: false }));
@@ -196,7 +194,7 @@ export default function Settings() {
     setSavingGithub(true);
     try {
       const token = await getToken();
-      await axios.post(`${API_BASE}/api/settings`, {
+      await api.post(`/api/settings`, {
         user_id: userId,
         github_username: githubUsername.trim()
       }, {

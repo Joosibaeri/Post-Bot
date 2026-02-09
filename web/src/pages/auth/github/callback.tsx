@@ -6,10 +6,8 @@
  */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import axios from 'axios';
+import { api } from '@/lib/api';
 import { useUser } from '@clerk/nextjs';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default function GitHubCallback() {
     const router = useRouter();
@@ -47,8 +45,8 @@ export default function GitHubCallback() {
             try {
                 // Exchange code for token via backend
                 const redirectUri = `${window.location.origin}/auth/github/callback`;
-                const response = await axios.get(
-                    `${API_BASE}/auth/github/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state || '')}&redirect_uri=${encodeURIComponent(redirectUri)}`
+                const response = await api.get(
+                    `/auth/github/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state || '')}&redirect_uri=${encodeURIComponent(redirectUri)}`
                 );
 
                 if (response.data.status === 'success') {

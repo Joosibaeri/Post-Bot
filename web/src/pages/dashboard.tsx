@@ -97,7 +97,7 @@ export default function Dashboard() {
     if (firstActivityContext && context.repo === 'my-project') {
       setContext(firstActivityContext);
     }
-  }, [firstActivityContext]);
+  }, [firstActivityContext, context.repo]);
 
 
   // Modals
@@ -174,17 +174,7 @@ export default function Dashboard() {
 
   const checkAuthentication = async (uid: string) => {
     try {
-      // First check localStorage for LinkedIn connection
-      const linkedinUrn = localStorage.getItem('linkedin_user_urn');
-      const authVerified = localStorage.getItem('authentication_verified') === 'true';
-
-      if (linkedinUrn || authVerified) {
-        setIsAuthenticated(true);
-        setIsLoading(false);
-        return;
-      }
-
-      // Check backend for saved settings
+      // Always verify with backend first — localStorage is only a cache hint
       const token = await getToken();
       const response = await api.post('/api/auth/refresh', { user_id: uid }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -192,16 +182,19 @@ export default function Dashboard() {
 
       if (response.data.access_token || response.data.authenticated) {
         setIsAuthenticated(true);
+        localStorage.setItem('authentication_verified', 'true');
       } else {
         // User hasn't completed onboarding - redirect them
         setIsAuthenticated(false);
+        localStorage.removeItem('authentication_verified');
         showToast.error('Please complete setup first');
         router.push('/onboarding');
       }
     } catch (error) {
-      // Check localStorage one more time before redirecting
+      // Backend unreachable — use localStorage as fallback cache only
       const linkedinUrn = localStorage.getItem('linkedin_user_urn');
-      if (linkedinUrn) {
+      const authVerified = localStorage.getItem('authentication_verified') === 'true';
+      if (linkedinUrn || authVerified) {
         setIsAuthenticated(true);
       } else {
         // Redirect to onboarding for incomplete setup
@@ -271,7 +264,11 @@ export default function Dashboard() {
     setStatus('');
     const toastId = showToast.loading(testMode ? 'Generating preview...' : 'Publishing post...');
     try {
-      const result = await publishPost({ context, test_mode: testMode });
+      const token = await getToken();
+      const result = await publishPost(
+        { context, test_mode: testMode, user_id: userId },
+        token || undefined
+      );
       showToast.dismiss(toastId);
       showToast.success(testMode ? 'Preview generated!' : 'Post published successfully!');
       if (result.post) {
@@ -317,7 +314,10 @@ export default function Dashboard() {
         const repoPath = activityContext.full_repo;
         const [owner, repo] = repoPath.split('/');
         if (owner && repo) {
-          const response = await api.get(`/api/github/repo/${owner}/${repo}`);
+          const token = await getToken();
+          const response = await api.get(`/api/github/repo/${owner}/${repo}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
           if (response.data && response.data.total_commits) {
             setContext(prev => ({
               ...prev,
