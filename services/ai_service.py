@@ -78,6 +78,50 @@ OPENAI_MODEL = "gpt-4o"
 ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
 MISTRAL_MODEL = "mistral-large-latest"
 
+# =============================================================================
+# SINGLETON AI CLIENTS (lazily created once, reused across calls)
+# =============================================================================
+_groq_client = None
+_openai_client = None
+_anthropic_client = None
+_mistral_client = None
+
+
+def _get_groq_client(api_key: str = None):
+    """Get or create singleton Groq client."""
+    global _groq_client
+    key = api_key or GROQ_API_KEY
+    if _groq_client is None and key and GROQ_AVAILABLE:
+        _groq_client = Groq(api_key=key)
+    return _groq_client
+
+
+def _get_openai_client(api_key: str = None):
+    """Get or create singleton OpenAI client."""
+    global _openai_client
+    key = api_key or OPENAI_API_KEY
+    if _openai_client is None and key and OPENAI_AVAILABLE:
+        _openai_client = OpenAI(api_key=key)
+    return _openai_client
+
+
+def _get_anthropic_client(api_key: str = None):
+    """Get or create singleton Anthropic client."""
+    global _anthropic_client
+    key = api_key or ANTHROPIC_API_KEY
+    if _anthropic_client is None and key and ANTHROPIC_AVAILABLE:
+        _anthropic_client = Anthropic(api_key=key)
+    return _anthropic_client
+
+
+def _get_mistral_client(api_key: str = None):
+    """Get or create singleton Mistral client."""
+    global _mistral_client
+    key = api_key or MISTRAL_API_KEY
+    if _mistral_client is None and key and MISTRAL_AVAILABLE:
+        _mistral_client = Mistral(api_key=key)
+    return _mistral_client
+
 
 # =============================================================================
 # TYPES & ENUMS
@@ -677,7 +721,10 @@ def _generate_with_groq(
         return None
     
     try:
-        client = Groq(api_key=key)
+        client = _get_groq_client(key)
+        if client is None:
+            logger.error("Failed to create Groq client")
+            return None
         
         response = client.chat.completions.create(
             messages=[
@@ -717,7 +764,10 @@ def _generate_with_openai(
         return None
     
     try:
-        client = OpenAI(api_key=key)
+        client = _get_openai_client(key)
+        if client is None:
+            logger.error("Failed to create OpenAI client")
+            return None
         
         response = client.chat.completions.create(
             messages=[
@@ -757,7 +807,10 @@ def _generate_with_anthropic(
         return None
     
     try:
-        client = Anthropic(api_key=key)
+        client = _get_anthropic_client(key)
+        if client is None:
+            logger.error("Failed to create Anthropic client")
+            return None
         
         response = client.messages.create(
             model=ANTHROPIC_MODEL,
@@ -798,7 +851,10 @@ def _generate_with_mistral(
         return None
     
     try:
-        client = Mistral(api_key=key)
+        client = _get_mistral_client(key)
+        if client is None:
+            logger.error("Failed to create Mistral client")
+            return None
         
         response = client.chat.complete(
             model=MISTRAL_MODEL,

@@ -58,18 +58,23 @@ async def process_due_posts():
             result = post_to_linkedin(
                 message_text=post['post_content'],
                 access_token=tokens['access_token'],
+                linkedin_user_urn=tokens.get('linkedin_user_urn'),
             )
             
-            if result.get('success'):
+            # Handle both bool and dict returns from post_to_linkedin
+            success = result.get('success') if isinstance(result, dict) else bool(result)
+            
+            if success:
                 await update_post_status(post['id'], 'published')
-                logger.info(f"✅ Successfully published scheduled post {post['id']}")
+                logger.info(f"Successfully published scheduled post {post['id']}")
             else:
+                error_msg = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Publishing returned failure'
                 await update_post_status(
                     post['id'],
                     'failed',
-                    result.get('error', 'Unknown error')
+                    error_msg
                 )
-                logger.error(f"❌ Failed to publish post {post['id']}: {result.get('error')}")
+                logger.error(f"Failed to publish post {post['id']}: {error_msg}")
             
             processed += 1
             

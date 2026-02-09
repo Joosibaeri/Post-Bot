@@ -11,6 +11,8 @@ This module handles:
 Environment Variables:
     DATABASE_URL: PostgreSQL connection string (required in production)
                   Format: postgresql://user:password@host:5432/dbname
+    DB_POOL_MIN_SIZE: Minimum pool connections (default 2)
+    DB_POOL_MAX_SIZE: Maximum pool connections (default 10)
     
     If DATABASE_URL is not set, the app will fail fast with RuntimeError.
 """
@@ -18,6 +20,13 @@ import os
 import logging
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# DATABASE CONNECTION POOL CONFIGURATION
+# =============================================================================
+
+DB_POOL_MIN_SIZE = int(os.getenv("DB_POOL_MIN_SIZE", "2"))
+DB_POOL_MAX_SIZE = int(os.getenv("DB_POOL_MAX_SIZE", "10"))
 
 # =============================================================================
 # DATABASE CONNECTION
@@ -124,11 +133,21 @@ class DatabaseWrapper:
 
 
 def get_database():
-    """Get the database instance, initializing if needed."""
+    """Get the database instance, initializing if needed with pool tuning."""
     global database, _wrapper
     if database is None:
         from databases import Database
-        database = Database(DATABASE_URL)
+
+        pool_opts = {}
+        if not IS_SQLITE:
+            pool_opts = {
+                "min_size": DB_POOL_MIN_SIZE,
+                "max_size": DB_POOL_MAX_SIZE,
+            }
+            logger.info(
+                f"Database pool config: min_size={DB_POOL_MIN_SIZE}, max_size={DB_POOL_MAX_SIZE}"
+            )
+        database = Database(DATABASE_URL, **pool_opts)
         _wrapper = DatabaseWrapper(database)
     return _wrapper
 

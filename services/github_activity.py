@@ -5,35 +5,31 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, Tuple
 
+from cachetools import TTLCache
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
 GITHUB_API = "https://api.github.com"
 
 # =============================================================================
-# SIMPLE IN-MEMORY CACHE
-# Speeds up dashboard loading by caching GitHub API responses for 5 minutes
+# TTL CACHE (auto-expires entries, bounded size – max 256 entries, 5 min TTL)
 # =============================================================================
-_cache: Dict[str, Tuple[Any, float]] = {}
 CACHE_TTL_SECONDS = 300  # 5 minutes
+_cache: TTLCache = TTLCache(maxsize=256, ttl=CACHE_TTL_SECONDS)
 
 
 def _get_cached(key: str) -> Optional[Any]:
     """Get value from cache if not expired."""
-    if key in _cache:
-        value, expires_at = _cache[key]
-        if time.time() < expires_at:
-            logger.debug(f"Cache HIT for {key}")
-            return value
-        else:
-            del _cache[key]
-            logger.debug(f"Cache EXPIRED for {key}")
-    return None
+    value = _cache.get(key)
+    if value is not None:
+        logger.debug(f"Cache HIT for {key}")
+    return value
 
 
 def _set_cached(key: str, value: Any, ttl: int = CACHE_TTL_SECONDS) -> None:
     """Store value in cache with TTL."""
-    _cache[key] = (value, time.time() + ttl)
+    _cache[key] = value
     logger.debug(f"Cache SET for {key}, expires in {ttl}s")
 
 
@@ -41,12 +37,12 @@ def clear_github_cache(username: str = None) -> None:
     """Clear cache for a user or all cache."""
     global _cache
     if username:
-        keys_to_delete = [k for k in _cache if username in k]
+        keys_to_delete = [k for k in list(_cache.keys()) if username in k]
         for k in keys_to_delete:
-            del _cache[k]
+            _cache.pop(k, None)
         logger.info(f"Cleared cache for {username} ({len(keys_to_delete)} entries)")
     else:
-        _cache = {}
+        _cache.clear()
         logger.info("Cleared all GitHub cache")
 
 
