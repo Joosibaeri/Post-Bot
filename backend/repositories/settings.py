@@ -44,6 +44,12 @@ class SettingsRepository(BaseRepository):
                     settings['preferences'] = json.loads(settings['preferences'])
                 except json.JSONDecodeError:
                     settings['preferences'] = {}
+            # Parse JSON persona
+            if settings.get('persona'):
+                try:
+                    settings['persona'] = json.loads(settings['persona'])
+                except json.JSONDecodeError:
+                    settings['persona'] = {}
             return settings
         return None
     
@@ -61,6 +67,10 @@ class SettingsRepository(BaseRepository):
         if 'preferences' in data and isinstance(data['preferences'], dict):
             data['preferences'] = json.dumps(data['preferences'])
         
+        # Handle persona JSON encoding
+        if 'persona' in data and isinstance(data['persona'], dict):
+            data['persona'] = json.dumps(data['persona'])
+        
         # Check if settings exist
         existing = await self.get_settings()
         
@@ -73,7 +83,8 @@ class SettingsRepository(BaseRepository):
                     preferences = COALESCE($3, preferences),
                     onboarding_complete = COALESCE($4, onboarding_complete),
                     subscription_tier = COALESCE($5, subscription_tier),
-                    updated_at = $6
+                    persona = COALESCE($6, persona),
+                    updated_at = $7
                 WHERE user_id = $1
             """
             await self.db.execute(query, [
@@ -82,6 +93,7 @@ class SettingsRepository(BaseRepository):
                 data.get('preferences'),
                 data.get('onboarding_complete'),
                 data.get('subscription_tier'),
+                data.get('persona'),
                 data['updated_at']
             ])
         else:
@@ -89,13 +101,14 @@ class SettingsRepository(BaseRepository):
             now = int(time.time())
             query = """
                 INSERT INTO user_settings 
-                (user_id, github_username, preferences, onboarding_complete, subscription_tier, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                (user_id, github_username, preferences, persona, onboarding_complete, subscription_tier, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             """
             await self.db.execute(query, [
                 self.user_id,
                 data.get('github_username'),
                 data.get('preferences', '{}'),
+                data.get('persona', '{}'),
                 data.get('onboarding_complete', 0),
                 data.get('subscription_tier', 'free'),
                 now,

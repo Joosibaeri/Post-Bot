@@ -363,7 +363,8 @@ async def get_connection_status(user_id: str, current_user: dict = Depends(requi
         "github_connected": False,
         "github_username": None,
         "github_oauth_connected": False,
-        "token_expires_at": None
+        "token_expires_at": None,
+        "persona_complete": False
     }
     
     logger.info(f"Checking connection status for user: {user_id}")
@@ -423,8 +424,24 @@ async def get_connection_status(user_id: str, current_user: dict = Depends(requi
             if settings and settings.get("github_username"):
                 status["github_username"] = settings.get("github_username")
                 status["github_connected"] = True
+            # Check persona completeness
+            persona = settings.get("persona", {}) if settings else {}
+            status["persona_complete"] = bool(
+                persona and persona.get("bio") and persona.get("tone") and persona.get("topics")
+            )
         except Exception as e:
             logger.debug(f"Error getting settings: {e}")
+    else:
+        # Still check persona if we already had a github_username
+        try:
+            if get_user_settings:
+                settings = await get_user_settings(user_id)
+                persona = settings.get("persona", {}) if settings else {}
+                status["persona_complete"] = bool(
+                    persona and persona.get("bio") and persona.get("tone") and persona.get("topics")
+                )
+        except Exception:
+            status["persona_complete"] = False
     
     # Check GitHub OAuth token separately 
     if get_github_token and not status["github_oauth_connected"]:

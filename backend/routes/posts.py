@@ -533,6 +533,16 @@ async def publish(
             image_asset = upload_image_to_linkedin(image_data, access_token=token, linkedin_user_urn=linkedin_urn)
         if post_to_linkedin and token:
             post_to_linkedin(post, image_asset, access_token=token, linkedin_user_urn=linkedin_urn)
+        
+        # Refresh learned patterns after successful publish (fire-and-forget)
+        if user_id:
+            try:
+                from services.persona_service import refresh_learned_patterns
+                import asyncio
+                asyncio.create_task(refresh_learned_patterns(user_id))
+            except Exception:
+                pass  # Non-critical, don't block publish response
+        
         return {"status": "posted", "post": post, "image_asset": image_asset, "account": linkedin_urn}
     
     except TokenNotFoundError as e:

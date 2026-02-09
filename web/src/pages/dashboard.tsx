@@ -64,6 +64,7 @@ export default function Dashboard() {
     templates,
     githubActivities,
     githubUsername,
+    personaComplete,
     firstActivityContext,
     isLoadingStats,
     isLoadingGithub,
@@ -500,6 +501,28 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Persona Setup Nudge */}
+        {!personaComplete && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-700/50 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 dark:bg-purple-800/50 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium text-purple-900 dark:text-purple-200">Set up your writing persona</p>
+                <p className="text-sm text-purple-600 dark:text-purple-400">Get personalized AI posts that match your voice, tone, and topics</p>
+              </div>
+            </div>
+            <a
+              href="/settings#persona"
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+            >
+              Set Up Persona
+            </a>
+          </div>
+        )}
 
         {/* Usage Counter for Free Tier */}
         <div className="mb-6">

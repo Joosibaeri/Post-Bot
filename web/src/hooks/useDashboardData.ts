@@ -55,7 +55,7 @@ async function fetchGitHubActivity(username: string): Promise<GitHubActivity[]> 
     return response.data.activities || [];
 }
 
-async function fetchUserSettings(userId: string, getToken: () => Promise<string | null>): Promise<{ github_username?: string }> {
+async function fetchUserSettings(userId: string, getToken: () => Promise<string | null>): Promise<{ github_username?: string; persona?: Record<string, any> }> {
     const token = await getToken();
     const response = await api.get(`/api/settings/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -84,6 +84,8 @@ export function useDashboardData({ userId, enabled = true }: UseDashboardDataOpt
     });
 
     const githubUsername = settingsQuery.data?.github_username || '';
+    const persona = settingsQuery.data?.persona || {};
+    const personaComplete = !!(persona.bio && persona.tone && persona.topics?.length);
 
     // Parallel queries for dashboard data
     const statsQuery = useQuery({
@@ -156,6 +158,7 @@ export function useDashboardData({ userId, enabled = true }: UseDashboardDataOpt
         templates: templatesQuery.data || [],
         githubActivities: activities,
         githubUsername,
+        personaComplete,
         firstActivityContext,
 
         // Loading states

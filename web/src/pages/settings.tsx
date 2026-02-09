@@ -444,7 +444,9 @@ export default function Settings() {
             </div>
 
             {/* Writing Persona Settings */}
-            <PersonaSettings />
+            <div id="persona">
+              <PersonaSettings />
+            </div>
 
           </div>
         )}
