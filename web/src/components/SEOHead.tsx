@@ -29,11 +29,6 @@ export default function SEOHead({
       '@type': 'Offer',
       price: '0',
       priceCurrency: 'USD'
-    },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: '4.8',
-      ratingCount: '150'
     }
   };
 
@@ -83,11 +78,10 @@ export default function SEOHead({
       <link rel="alternate icon" href="/favicon.ico" />
       <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
       <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-      <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+      <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
       {/* Theme Color */}
-      <meta name="theme-color" content="#2563EB" media="(prefers-color-scheme: light)" />
-      <meta name="theme-color" content="#1E40AF" media="(prefers-color-scheme: dark)" />
+      <meta name="theme-color" content="#2563EB" />
 
       {/* Structured Data */}
       <script

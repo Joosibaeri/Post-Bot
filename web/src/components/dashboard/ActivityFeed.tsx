@@ -9,12 +9,12 @@ interface ActivityFeedProps {
     onSelect: (activity: GitHubActivity) => void;
 }
 
-export const ActivityFeed: React.FC<ActivityFeedProps> = ({
+export const ActivityFeed = React.memo(function ActivityFeed({
     activities,
     loading,
     selectedActivity,
     onSelect
-}) => {
+}: ActivityFeedProps) {
     if (loading) {
         return (
             <div className="space-y-4" role="status" aria-label="Loading activities">
@@ -55,7 +55,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                     key={activity.id}
                     type="button"
                     onClick={() => onSelect(activity)}
-                    aria-pressed={selectedActivity === activity.id}
+                    aria-current={selectedActivity === activity.id ? 'true' : undefined}
                     aria-label={`Select activity: ${activity.title}`}
                     className={`group w-full text-left cursor-pointer relative bg-slate-50 dark:bg-white/5 border rounded-xl p-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm ${selectedActivity === activity.id
                         ? 'border-blue-500 ring-1 ring-blue-500 dark:bg-blue-500/10'
@@ -109,5 +109,5 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
             ))}
         </div>
     );
-};
+});
 

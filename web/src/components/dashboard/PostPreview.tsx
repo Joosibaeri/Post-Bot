@@ -45,14 +45,15 @@ const PostPreviewComponent: React.FC<PostPreviewProps> = ({
 
     const handleSaveEdit = () => {
         if (onEdit) {
-            // onEdit prop now handles saving content
+            onEdit(editContent);
         }
         if (onToggleEditing) onToggleEditing(false);
     };
 
     // Format content with LinkedIn-style highlighting
     const formatContent = (text: string) => {
-        return text.split('\n').map((line, i) => {
+        const lines = text.split('\n');
+        return lines.map((line, i) => {
             const parts = line.split(/(https?:\/\/[^\s]+|#\w+)/g);
             return (
                 <span key={i}>
@@ -78,7 +79,7 @@ const PostPreviewComponent: React.FC<PostPreviewProps> = ({
                         }
                         return <span key={j}>{part}</span>;
                     })}
-                    {i < text.split('\n').length - 1 && <br />}
+                    {i < lines.length - 1 && <br />}
                 </span>
             );
         });
