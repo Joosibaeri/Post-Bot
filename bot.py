@@ -1215,7 +1215,7 @@ def post_to_twitter(
 # --- MAIN BRAIN ---
 if __name__ == "__main__":
     # Set TEST_MODE = True to preview posts without posting to LinkedIn
-    TEST_MODE = False  # Change to False when you're ready to post live
+    TEST_MODE = True  # Change to False when you're ready to post live
     
     logger.info("LinkedIn Post Bot Starting...")
     if TEST_MODE:
