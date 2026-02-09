@@ -437,9 +437,6 @@ export function BotModePanel({ userId, userName, postsRemaining = 10, tier = 'fr
                 </div>
             </div>
 
-            {/* AI Status Messages */}
-            <AIStatusMessage messages={ai.messages} isActive={ai.isActive} dismiss={ai.dismiss} />
-
             {/* Main content based on step */}
             {step === 'idle' && (
                 <div className="text-center py-8">
@@ -599,6 +596,9 @@ export function BotModePanel({ userId, userName, postsRemaining = 10, tier = 'fr
                         )}
                         {scanning && "Scanning..."}
                     </Button>
+
+                    {/* AI Status Messages — right below the scan button */}
+                    <AIStatusMessage messages={ai.messages} isActive={ai.isActive} dismiss={ai.dismiss} />
                 </div>
             )}
 
@@ -634,6 +634,9 @@ export function BotModePanel({ userId, userName, postsRemaining = 10, tier = 'fr
                             </button>
                         </div>
                     </div>
+
+                    {/* AI Status Messages — below the generate button */}
+                    <AIStatusMessage messages={ai.messages} isActive={ai.isActive} dismiss={ai.dismiss} />
 
                     {/* Publish Limit Indicator - Generation is unlimited, publishing is limited */}
                     <div className={`p-3 rounded-lg text-sm flex items-center justify-between ${postsRemaining === 0
@@ -696,6 +699,9 @@ export function BotModePanel({ userId, userName, postsRemaining = 10, tier = 'fr
                             ← Start Over
                         </button>
                     </div>
+
+                    {/* AI Status Messages — below the start over button */}
+                    <AIStatusMessage messages={ai.messages} isActive={ai.isActive} dismiss={ai.dismiss} />
 
                     <PostQueuePanel
                         posts={posts}
