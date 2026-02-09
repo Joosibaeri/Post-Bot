@@ -558,12 +558,6 @@ export default function Dashboard() {
 
         {/* Quick Action Buttons */}
         <div className="flex flex-wrap gap-3 mb-8">
-
-          {/* AI Status Messages for Manual Mode */}
-          <div className="w-full">
-            <AIStatusMessage messages={ai.messages} isActive={ai.isActive} dismiss={ai.dismiss} />
-          </div>
-
           <button
             onClick={() => setShowAnalytics(!showAnalytics)}
             className="px-4 py-2 bg-white dark:bg-white/5 border-2 border-green-200 dark:border-green-500/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-50 dark:hover:bg-green-500/10 transition-all flex items-center"
@@ -724,6 +718,9 @@ export default function Dashboard() {
               }}
               onRemoveImage={() => setManualSelectedImage(null)}
             />
+
+            {/* AI Status Messages — right below the generate button */}
+            <AIStatusMessage messages={ai.messages} isActive={ai.isActive} dismiss={ai.dismiss} />
 
             <PostPreview
               preview={preview}
