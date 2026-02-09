@@ -21,8 +21,8 @@ Thank you for your interest in contributing! This guide will help you get set up
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| Node.js | 18+ | For Next.js frontend |
-| Python | 3.10+ | For FastAPI backend |
+| Node.js | 20+ | For Next.js frontend |
+| Python | 3.11+ | For FastAPI backend |
 | npm | 9+ | Package manager |
 | Git | 2.30+ | Version control |
 
@@ -95,18 +95,31 @@ npm run dev
 ```
 linkedin-post-bot/
 ├── web/                    # Next.js 14 Frontend
-│   ├── src/pages/          # Page routes
-│   ├── src/components/     # React components
+│   ├── src/pages/          # Page routes (15+ pages)
+│   ├── src/components/     # React components (45+)
+│   │   ├── dashboard/      # Dashboard widgets (11)
+│   │   ├── modals/         # Dialog components (5)
+│   │   ├── settings/       # Persona quiz & settings
+│   │   └── ui/             # Reusable primitives (19)
 │   ├── src/hooks/          # Custom hooks
-│   └── src/lib/            # Utilities
-├── backend/                # FastAPI Backend
-│   ├── app.py              # API entry point
-│   └── middleware/         # Auth middleware
+│   ├── src/lib/            # API client, toast utility
+│   └── __tests__/          # Jest test suite
+├── backend/                # FastAPI Backend (Clean Architecture)
+│   ├── app.py              # Slim entry point (~200 lines)
+│   ├── routes/             # API route modules (8 files)
+│   ├── middleware/         # Auth (Clerk JWT) + Request ID
+│   ├── repositories/       # Data access layer
+│   ├── database/           # SQLAlchemy schema
+│   ├── migrations/         # Alembic versioning
+│   └── tests/              # pytest suite (84+ tests)
 ├── services/               # Business Logic Layer
-│   ├── ai_service.py       # Groq AI integration
-│   ├── github_activity.py  # GitHub API
+│   ├── ai_service.py       # Multi-provider AI (Groq, OpenAI, Anthropic, Mistral)
+│   ├── github_activity.py  # GitHub API (with TTLCache)
 │   ├── linkedin_service.py # LinkedIn posting
+│   ├── persona_service.py  # AI persona management
+│   ├── celery_app.py       # Background task queue
 │   └── ...
+├── shared/contracts/       # Auto-generated OpenAPI types
 ├── bot.py                  # Standalone CLI bot
 └── docs/                   # Additional documentation
 ```
@@ -115,11 +128,14 @@ linkedin-post-bot/
 
 | File | Purpose |
 |------|---------|
-| `backend/app.py` | FastAPI server, all API routes |
-| `services/ai_service.py` | AI post generation with Groq |
+| `backend/app.py` | FastAPI server entry point, router registration |
+| `backend/routes/*.py` | API route modules (8 files: auth, posts, settings, etc.) |
+| `backend/middleware/clerk_auth.py` | JWT verification (`require_auth`, `get_current_user`) |
+| `services/ai_service.py` | Multi-provider AI post generation |
 | `services/linkedin_service.py` | LinkedIn OAuth and posting |
-| `web/src/pages/_app.tsx` | Next.js app wrapper with Clerk |
 | `web/src/pages/dashboard.tsx` | Main dashboard page |
+| `web/src/hooks/useDashboardData.ts` | Dashboard data fetching (React Query) |
+| `web/src/lib/api.ts` | Centralized API client with interceptors |
 
 ---
 
@@ -210,7 +226,13 @@ refactor(services): extract token validation
    # Frontend
    cd web && npm run lint && npm run build
    
-   # Backend (if applicable)
+   # Frontend tests
+   cd web && npm test
+
+   # Backend tests
+   cd backend && pytest tests/ -v
+   
+   # Backend lint (if applicable)
    black --check backend/ services/
    ```
 
@@ -218,6 +240,7 @@ refactor(services): extract token validation
    - Start both servers
    - Verify existing features still work
    - Test your new feature
+   - Ensure all CI checks pass (backend tests, frontend build, frontend tests, python lint)
 
 ### PR Requirements
 

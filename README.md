@@ -7,8 +7,8 @@
 [![API Contracts](https://img.shields.io/github/actions/workflow/status/cliff-de-tech/linkedin-post-bot/api-contracts.yml?branch=main&label=api%20contracts)](https://github.com/cliff-de-tech/linkedin-post-bot/actions/workflows/api-contracts.yml)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org/)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.3-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.125-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
 ---
 
@@ -17,7 +17,7 @@
 Most developers are active on GitHub but invisible on LinkedIn. Writing engaging posts takes time, and consistency is hard. This tool bridges the gap by:
 
 - **Scanning your GitHub activity** to find meaningful coding moments
-- **Generating professional posts** using AI (Groq LLM)
+- **Generating professional posts** using AI (Groq, OpenAI, Anthropic, or Mistral)
 - **Publishing directly to LinkedIn** through official OAuth APIs
 
 It's built for developers who want to grow their professional presence without spending hours crafting content.
@@ -31,12 +31,15 @@ It's built for developers who want to grow their professional presence without s
 | Feature | Description |
 |---------|-------------|
 | **GitHub Activity Scanning** | Fetches your public commits, PRs, pushes, and new repos |
-| **AI Post Generation** | Uses Groq LLM to create natural, engaging LinkedIn content |
+| **AI Post Generation** | Multi-provider AI (Groq, OpenAI, Anthropic, Mistral) for natural, engaging LinkedIn content |
 | **OAuth-based LinkedIn Posting** | Publishes via LinkedIn's official API with your authorization |
 | **Web Dashboard** | Modern UI with dark/light mode, stats, and post management |
 | **Multi-User Support** | Per-user credentials with Clerk authentication |
+| **Post Scheduling** | Schedule posts for future publication via Celery + Redis |
+| **Persona System** | AI writing persona quiz that tailors post tone and style |
 | **Post Editor** | Manual writing with character counter and preview |
 | **Image Integration** | Optional Unsplash images for visual posts |
+| **Payments** | Stripe integration with free/pro/enterprise tiers |
 | **CLI Bot Mode** | Standalone script for scheduled, automated posting |
 
 ## What This App Does NOT Do ❌
@@ -62,14 +65,18 @@ It's built for developers who want to grow their professional presence without s
 - **Free Tier Limits**: Scanned activities capped at 10 to match daily post quota
 - **Commit Count Badges**: Push events display commit counts (e.g., "3 commits")
 - **Settings Management**: Individual save buttons per credential, masked secrets
-- **Dark/Light Mode**: Full theme support across all pages
+- **Dark/Light Mode**: Full theme support across all pages with flash prevention
 - **Keyboard Shortcuts**: Ctrl+Enter to publish, Escape to close modals
 - **Post Templates**: Pre-built templates for common post types
 - **Character Counter**: LinkedIn's 3000-character limit enforced
+- **Post Scheduling**: Schedule posts for future publication dates
+- **Persona System**: AI writing persona quiz and customization
+- **Focus Trapping**: Full keyboard accessibility in modals
+- **Request Tracing**: X-Request-ID middleware for distributed tracing
+- **Stripe Payments**: Subscription tiers with usage-based limits
 
 ### ⚠️ Known Limitations
 
-- **No scheduled queue** (yet) — posts are published immediately
 - **Single image per post** — LinkedIn API limitation
 - **No LinkedIn analytics** — engagement metrics not fetched from LinkedIn
 - **English-only AI** — generated content is optimized for English
@@ -126,6 +133,37 @@ It's built for developers who want to grow their professional presence without s
 - **Schedule for Later**: Ability to schedule posts for future publication dates.
 - **Background Processing**: Powered by Celery and Redis for reliable timely delivery.
 - **Management**: View and manage scheduled posts directly from the history view.
+
+---
+
+## 🆕 Recent Updates (February 2026)
+
+### AI & Personas 🧠
+
+- **Mistral AI Provider**: Added Mistral (`mistral-large-latest`) as a fourth AI provider alongside Groq, OpenAI, and Anthropic.
+- **AI Client Singletons**: Lazy-loaded singleton pattern for all AI SDK clients — eliminates redundant initialization.
+- **Persona System**: New `PersonaQuiz` and `PersonaSettings` components let users customize their AI writing voice and style.
+
+### Security & Reliability 🔒
+
+- **Request ID Middleware**: `X-Request-ID` header on every request for distributed tracing and debugging.
+- **Auth Guards on All Endpoints**: `require_auth` dependency added to all settings, publish, and scheduling endpoints with user ownership verification.
+- **Rate Limiting (HTTP 429)**: Publish endpoint now returns proper 429 status codes instead of JSON error bodies.
+
+### Accessibility & UX ♿
+
+- **Focus Trapping**: `useFocusTrap` hook keeps keyboard focus inside modals; restores focus on close.
+- **ARIA Attributes**: All modals have `aria-label`, buttons have accessible names, form inputs have proper `<label>` associations.
+- **Shared Icon Component**: Centralized `<Icon>` component replaces inline SVG duplication across the codebase.
+- **Dark Mode Flash Prevention**: Custom `_document.tsx` injects a blocking script to prevent white flash on dark-mode page loads.
+- **Lazy-Loaded Background**: `InteractiveBackground` is dynamically imported to reduce initial bundle size.
+
+### Infrastructure 🏗️
+
+- **Database Pool Tuning**: Configurable `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` for PostgreSQL connection pooling.
+- **GitHub TTLCache**: In-memory TTL cache for GitHub activity fetches to reduce redundant API calls.
+- **HTTP Client Standardization**: Frontend migrated from raw `axios` calls to a centralized `api` utility with interceptors.
+- **CI Fixes**: Backend test auth overrides, frontend type alignment, and dashboard test async handling.
 
 ---
 
@@ -388,33 +426,52 @@ The frontend **NEVER** receives sensitive data:
 
 ## Testing
 
-Test files are located in the `tests/` directory:
+### Backend Tests (pytest)
 
-```
-tests/
-├── test_github.py              # GitHub API integration tests
-└── verify_phase2_security.py   # Security verification suite
-```
+Located in `backend/tests/` — 84+ tests across 5 files:
 
-### Run Security Verification
+| File | Coverage |
+|------|----------|
+| `test_api.py` | API endpoint integration tests (health, settings, publish, CORS) |
+| `test_ai_service.py` | AI provider routing and prompt generation |
+| `test_github_activity.py` | GitHub event parsing and activity scanning |
+| `test_linkedin_service.py` | LinkedIn API compliance and security |
+| `test_services.py` | Rate limiting, input validation, token store |
 
 ```bash
-# Run all Phase 2 security checks
+# Run all backend tests
+cd backend && pytest tests/ -v
+
+# Run with coverage
+cd backend && pytest tests/ -v --cov=. --cov-report=term-missing
+```
+
+### Frontend Tests (Jest)
+
+Located in `web/__tests__/` — 17+ tests across 3 files:
+
+| File | Coverage |
+|------|----------|
+| `dashboard.test.tsx` | Dashboard rendering, auth flow, generation |
+| `api.test.ts` | API client functions |
+| `smoke.test.tsx` | Component smoke tests |
+
+```bash
+# Run all frontend tests
+cd web && npm test
+
+# Run with verbose output
+cd web && npx jest --verbose
+```
+
+### Security Verification
+
+```bash
+# Run security checks
 py tests/verify_phase2_security.py
 
 # Expected output: 6/6 tests passed
 ```
-
-### Security Tests Include
-
-| Test | Description |
-|------|-------------|
-| `encryption_production` | Verifies fail-fast when `ENCRYPTION_KEY` missing in production |
-| `encryption_development` | Verifies plaintext fallback with warning in development |
-| `token_migration` | Checks atomic transactions with commit/rollback |
-| `github_auth` | Validates deterministic endpoint selection based on token |
-| `frontend_secrets` | Confirms no secrets in API request models |
-| `readme_docs` | Verifies documentation matches implementation |
 
 ---
 
@@ -422,11 +479,14 @@ py tests/verify_phase2_security.py
 
 | Layer | Technology |
 |-------|------------|
-| **Frontend** | Next.js 14, React 18, TypeScript, Tailwind CSS |
-| **Backend** | Python 3.10+, FastAPI, Gunicorn + Uvicorn |
-| **Database** | PostgreSQL (asyncpg) / SQLite (development) |
+| **Frontend** | Next.js 14.2, React 18, TypeScript 5.9, Tailwind CSS 3.4 |
+| **Backend** | Python 3.11, FastAPI 0.125, Gunicorn + Uvicorn |
+| **Database** | PostgreSQL (asyncpg) / SQLite (development), SQLAlchemy 2.0, Alembic |
 | **Authentication** | Clerk (frontend), JWT verification (backend) |
-| **AI** | Groq LLM (llama3-70b-8192) |
+| **AI** | Groq (llama-3.3-70b), OpenAI (gpt-4o), Anthropic (claude-3.5-sonnet), Mistral (mistral-large) |
+| **Task Queue** | Celery 5.6 + Redis 7 |
+| **Payments** | Stripe |
+| **Logging** | structlog (structured JSON logging) |
 | **APIs** | LinkedIn OAuth, GitHub REST API, Unsplash |
 
 ---
@@ -471,7 +531,7 @@ py tests/verify_phase2_security.py
 │                      SERVICES LAYER                                  │
 │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐         │
 │  │  ai_service    │  │ linkedin_svc   │  │ github_activity│         │
-│  │  (Groq LLM)    │  │ (OAuth+Post)   │  │ (REST API)     │         │
+│  │  (Multi-AI)    │  │ (OAuth+Post)   │  │ (REST API)     │         │
 │  └────────────────┘  └────────────────┘  └────────────────┘         │
 │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐         │
 │  │ user_settings  │  │  token_store   │  │ image_service  │         │
@@ -629,12 +689,12 @@ PostBot uses a modern microservices architecture for reliability and scalability
 
 | Service | Technology | Purpose |
 |---------|------------|---------|
-| **Frontend** | Next.js 14 + React | User dashboard, post editor, settings |
-| **Backend** | FastAPI + Python 3.10+ | REST API, OAuth flows, AI generation |
-| **Worker** | Celery | Background tasks (publishing posts) |
+| **Frontend** | Next.js 14 + React 18 | User dashboard, post editor, settings |
+| **Backend** | FastAPI + Python 3.11 | REST API, OAuth flows, AI generation |
+| **Worker** | Celery 5.6 | Background tasks (publishing posts) |
 | **Beat** | Celery Beat | Scheduled task runner (every 60s) |
-| **Broker** | Redis | Message queue for task distribution |
-| **Database** | PostgreSQL | User data, posts, tokens (encrypted) |
+| **Broker** | Redis 7 | Message queue for task distribution |
+| **Database** | PostgreSQL + SQLAlchemy | User data, posts, tokens (encrypted) |
 
 ### Key Features
 
@@ -648,11 +708,12 @@ PostBot uses a modern microservices architecture for reliability and scalability
 ## Prerequisites
 
 - **Docker & Docker Compose** (recommended) OR:
-  - Node.js 18+
-  - Python 3.10+
+  - Node.js 20+
+  - Python 3.11+
 - Clerk account ([clerk.com](https://clerk.com))
 - LinkedIn Developer App ([developers.linkedin.com](https://www.linkedin.com/developers))
 - Groq API key ([console.groq.com](https://console.groq.com))
+- (Optional) OpenAI, Anthropic, or Mistral API key for Pro tier AI
 
 ---
 
@@ -873,9 +934,16 @@ curl https://your-backend.railway.app/openapi.json > openapi.json
 ```
 linkedin-post-bot/
 ├── web/                        # Next.js Frontend
-│   ├── src/pages/              # Dashboard, Settings, Onboarding
-│   ├── src/components/         # UI Components
-│   └── src/hooks/              # Custom React hooks
+│   ├── src/pages/              # Dashboard, Settings, Onboarding, Pricing, etc.
+│   ├── src/components/         # UI Components (45+)
+│   │   ├── dashboard/          # Dashboard widgets (11 components)
+│   │   ├── modals/             # Dialog components (5 modals)
+│   │   ├── settings/           # Persona quiz & settings
+│   │   ├── ui/                 # Reusable primitives (19 components)
+│   │   └── landing/            # Landing page sections
+│   ├── src/hooks/              # Custom hooks (useDashboardData, useFocusTrap, etc.)
+│   ├── src/lib/                # API client, toast utility
+│   └── src/types/              # TypeScript type definitions
 ├── backend/                    # FastAPI Backend (Clean Architecture)
 │   ├── app.py                  # Slim entry point (~200 lines)
 │   ├── core/                   # Configuration & logging
@@ -889,20 +957,35 @@ linkedin-post-bot/
 │   │   ├── base.py             # BaseRepository (user_id filtering)
 │   │   ├── posts.py            # PostRepository
 │   │   └── settings.py         # SettingsRepository
-│   ├── routes/                 # API routers
+│   ├── routes/                 # API routers (8 modules)
+│   │   ├── auth.py             # Authentication
+│   │   ├── feedback.py         # User feedback
 │   │   ├── github.py           # GitHub OAuth + scan
 │   │   ├── linkedin.py         # LinkedIn OAuth
-│   │   └── posts.py            # Post generation
+│   │   ├── payments.py         # Stripe payments
+│   │   ├── posts.py            # Post generation & publishing
+│   │   ├── settings.py         # User settings & preferences
+│   │   └── webhooks.py         # Webhook receivers
 │   ├── schemas/                # Pydantic models
 │   │   └── requests.py         # Request/response models
-│   ├── middleware/             # Auth middleware
+│   ├── middleware/             # Auth & request ID middleware
+│   │   ├── clerk_auth.py       # JWT verification (require_auth, get_current_user)
+│   │   └── request_id.py       # X-Request-ID tracing
+│   ├── tests/                  # Backend test suite (5 files, 84+ tests)
 │   └── dependencies.py         # DI helpers
 ├── services/                   # Core Business Logic
-│   ├── ai_service.py           # Groq AI integration
-│   ├── github_activity.py      # GitHub API client
+│   ├── ai_service.py           # Multi-provider AI (Groq, OpenAI, Anthropic, Mistral)
+│   ├── github_activity.py      # GitHub API client (with TTLCache)
 │   ├── linkedin_service.py     # LinkedIn posting
-│   ├── db.py                   # Database connection
+│   ├── persona_analyzer.py     # AI persona analysis
+│   ├── persona_service.py      # Persona management
+│   ├── payment_service.py      # Stripe integration
+│   ├── celery_app.py           # Celery task queue
+│   ├── scheduler.py            # Post scheduling engine
+│   ├── db.py                   # Database connection (pool tuning)
+│   ├── encryption.py           # Fernet encryption at rest
 │   └── user_settings.py        # Settings storage
+├── shared/contracts/           # Auto-generated OpenAPI TypeScript types
 ├── bot.py                      # Standalone CLI bot
 └── auth.py                     # OAuth helper
 ```
@@ -1003,25 +1086,29 @@ CLI (bot.py)                Web (backend/app.py)
 
 ## Roadmap
 
-### 🎯 Short Term (Next 2–4 weeks)
+### ✅ Completed
 
-- [ ] Scheduled posting queue (time-delayed publishing)
-- [ ] Post drafts with save/restore
-- [ ] Export post history to CSV
+- [x] Scheduled posting queue (Celery + Redis)
+- [x] Post drafts with save/restore
+- [x] AI persona customization (tone, style)
+- [x] Docker deployment package
+- [x] Multi-provider AI (Groq, OpenAI, Anthropic, Mistral)
+- [x] Stripe payment integration
+- [x] Full accessibility (ARIA, focus trapping, keyboard nav)
 
 ### 🚀 Mid Term (1–3 months)
 
+- [ ] Export post history to CSV
 - [ ] Multi-account support (multiple LinkedIn profiles)
-- [ ] AI persona customization (tone, style, hashtags)
-- [ ] Docker deployment package
 - [ ] Basic engagement analytics (post performance)
+- [ ] Content calendar view
 
 ### 🌟 Long Term (3–6 months)
 
 - [ ] Mobile companion app (React Native)
 - [ ] Team/agency mode (manage multiple clients)
-- [ ] Content calendar view
 - [ ] LinkedIn analytics integration (if API permits)
+- [ ] GitLab, Bitbucket source support
 
 ---
 

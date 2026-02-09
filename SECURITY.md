@@ -21,9 +21,10 @@ This document explains how LinkedIn Post Bot handles security, authentication, a
 
 | Data | Storage | Encryption |
 |------|---------|------------|
-| LinkedIn OAuth tokens | SQLite (`backend_tokens.db`) | At rest (DB-level) |
-| User API keys (Groq, Unsplash) | SQLite (`user_settings.db`) | At rest (DB-level) |
-| LinkedIn Client ID/Secret | User settings DB | At rest (DB-level) |
+| LinkedIn OAuth tokens | PostgreSQL / SQLite | Fernet (AES-128-CBC + HMAC-SHA256) |
+| GitHub OAuth tokens | PostgreSQL / SQLite | Fernet (AES-128-CBC + HMAC-SHA256) |
+| User preferences | PostgreSQL / SQLite | No (non-sensitive) |
+| Post content & history | PostgreSQL / SQLite | No |
 
 ### What We NEVER Do
 
@@ -48,6 +49,22 @@ CLERK_SECRET_KEY=...
 ```
 
 > **Important**: Never commit `.env` files. The `.gitignore` excludes all environment files and database files.
+
+---
+
+## Authentication & Middleware
+
+### Clerk JWT Authentication
+
+All API data endpoints require a valid Clerk JWT token:
+
+- **`require_auth`**: Dependency that raises HTTP 401 if no valid token is present. Used on all settings, publish, and scheduling endpoints.
+- **`get_current_user`**: Optional dependency that returns the authenticated user or `None`. Used on endpoints that work with or without auth.
+- **User Ownership**: A `_verify_user_ownership()` helper raises HTTP 403 if the authenticated user doesn't match the requested `user_id`.
+
+### Request Tracing
+
+Every request includes an `X-Request-ID` header (generated or forwarded from client) for distributed tracing and debugging.
 
 ---
 
@@ -211,15 +228,16 @@ The application implements rate limiting to prevent abuse:
 
 | Endpoint Category | Limit | Window |
 |-------------------|-------|--------|
-| Post Generation (`/generate-preview`) | 10 requests | 1 hour |
+| Post Generation (`/api/post/generate-preview`) | 10 requests | 1 hour |
 | Publishing (`/api/publish/full`) | 5 requests | 1 hour |
+| Publishing (`/api/post/publish`) | 5 requests | 1 hour |
 | General API | 100 requests | 1 hour |
 
-Rate limits are enforced per-user (by Clerk user ID).
+Rate limits are enforced per-user (by Clerk user ID). Exceeded limits return **HTTP 429** responses.
 
 ### Implementation
 
-See `services/middleware.py` for the `RateLimiter` class:
+See `services/rate_limiter.py` for the `RateLimiter` class:
 
 ```python
 from services.middleware import post_generation_limiter, rate_limit
@@ -287,4 +305,4 @@ When contributing code, ensure:
 
 ---
 
-**Last updated**: December 2024
+**Last updated**: February 2026

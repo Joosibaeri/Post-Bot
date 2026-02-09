@@ -1,30 +1,105 @@
-# Backend (FastAPI) for LinkedIn Post Bot
+# PostBot Backend (FastAPI)
 
-Quick start (local):
+The backend is a FastAPI application implementing clean architecture with route modules, repository pattern, Clerk JWT authentication, and multi-provider AI integration.
 
-1. Create a virtualenv and install dependencies
+## Quick Start (Local)
 
 ```bash
+# 1. Create virtualenv and install dependencies
 python -m venv .venv
-source .venv/bin/activate  # on Windows use: .venv\Scripts\activate
-pip install -r backend/requirements.txt
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# 2. Configure environment
+cp ../.env.example ../.env  # Edit with your API keys
+
+# 3. Run the API
+python app.py
+# Or with hot-reload:
+uvicorn app:app --reload --port 8000
 ```
 
-2. Copy environment variables from `.env.example` and set them locally.
+The server starts at [http://localhost:8000](http://localhost:8000).
 
-3. Run the API
+## Architecture
+
+```
+backend/
+├── app.py              # FastAPI entry point (~200 lines)
+├── core/config.py      # Environment, CORS, templates
+├── database/schema.py  # SQLAlchemy table definitions
+├── migrations/         # Alembic schema versioning
+├── repositories/       # Data access layer (BaseRepository pattern)
+├── routes/             # API route modules (8 files)
+│   ├── auth.py         # Authentication endpoints
+│   ├── feedback.py     # User feedback
+│   ├── github.py       # GitHub OAuth + activity scanning
+│   ├── linkedin.py     # LinkedIn OAuth
+│   ├── payments.py     # Stripe subscriptions
+│   ├── posts.py        # Post generation, publishing, scheduling
+│   ├── settings.py     # User settings, connection status, usage
+│   └── webhooks.py     # Webhook receivers
+├── schemas/            # Pydantic request/response models
+├── middleware/          # Auth (Clerk JWT) + Request ID tracing
+├── dependencies.py     # Dependency injection helpers
+└── tests/              # pytest test suite (84+ tests)
+```
+
+## Key Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/api/templates` | GET | Post templates |
+| `/api/settings/{user_id}` | GET | User settings (auth required) |
+| `/api/post/generate-preview` | POST | AI-powered post generation |
+| `/api/post/publish` | POST | Publish to LinkedIn |
+| `/api/post/schedule` | POST | Schedule a future post |
+| `/api/github/scan` | POST | Scan GitHub activity |
+| `/api/publish/full` | POST | Full publish with image (auth required) |
+| `/docs` | GET | Swagger UI documentation |
+| `/openapi.json` | GET | OpenAPI 3.0 spec |
+
+All data endpoints require Clerk JWT authentication via `Authorization: Bearer <token>`.
+
+## AI Providers
+
+| Provider | Model | Tier |
+|----------|-------|------|
+| Groq | llama-3.3-70b-versatile | Free |
+| OpenAI | gpt-4o | Pro |
+| Anthropic | claude-3-5-sonnet-20241022 | Pro |
+| Mistral | mistral-large-latest | Pro |
+
+## Database
+
+- **Production**: PostgreSQL via asyncpg with configurable connection pooling (`DB_POOL_SIZE`, `DB_MAX_OVERFLOW`)
+- **Development**: SQLite fallback (auto-created as `dev_database.db`)
+- **Migrations**: Alembic (`alembic upgrade head` / `alembic revision --autogenerate`)
+- **Schema**: SQLAlchemy 2.0 declarative models in `database/schema.py`
+
+## Testing
 
 ```bash
-python backend/app.py
-# or
-uvicorn backend.app:app --reload --port 8000
+# Run all tests
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ -v --cov=. --cov-report=term-missing
 ```
 
-Endpoints:
-- `GET /health` - health check
-- `POST /generate-preview` - body: `{ "context": { ... } }` -> returns generated post preview
-- `POST /publish` - body: `{ "context": { ... }, "test_mode": true }` -> preview or publish
+Tests use FastAPI dependency overrides to mock Clerk authentication. See `tests/conftest.py` for fixtures.
 
-Notes:
-- This minimal backend imports and reuses functions in the project `bot.py`. Keep `bot.py` in the project root.
-- Implement proper auth, token storage, and background workers in subsequent iterations.
+## Environment Variables
+
+See the root `.env.example` for all required and optional variables. Key backend variables:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Production | PostgreSQL connection string |
+| `GROQ_API_KEY` | Yes | Default AI provider |
+| `ENCRYPTION_KEY` | Production | Fernet key for token encryption |
+| `CLERK_ISSUER` | Yes | Clerk JWT issuer URL |
+| `LINKEDIN_CLIENT_ID` | Yes | LinkedIn OAuth app |
+| `LINKEDIN_CLIENT_SECRET` | Yes | LinkedIn OAuth secret |
+| `STRIPE_SECRET_KEY` | Optional | Stripe payments |

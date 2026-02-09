@@ -2,8 +2,8 @@
 
 **Incident:** Public leak detected on December 20, 2025  
 **Affected Secrets:**
-1. Google API Key (bot.py:14) - `AIzaSyCJE68mgN7XdYh5rNSPHui...`
-2. LinkedIn Client Secret (auth.py:8) - `WPL_AP1.zZAW2G8BlWjm8HeX.AS...`
+1. Google API Key (bot.py:14) — revoked
+2. LinkedIn Client Secret (auth.py:8) — revoked
 
 ---
 
@@ -13,7 +13,7 @@
 
 **Steps:**
 1. Open [Google Cloud Console - Credentials](https://console.cloud.google.com/apis/credentials)
-2. Find the API key starting with `AIzaSyCJE68mgN7XdYh5rNSPHui...`
+2. Find the compromised API key
 3. Click **⋮** (three dots) → **Delete** or **Restrict immediately**
 4. **Create new API key:**
    - Click **+ CREATE CREDENTIALS** → **API key**
@@ -61,7 +61,7 @@ python -c "import os; print('Token set:', bool(os.getenv('LINKEDIN_ACCESS_TOKEN'
 
 **Steps:**
 1. Go to [GitHub Settings → Personal Access Tokens](https://github.com/settings/tokens)
-2. Find token starting with `github_pat_11BAYGHYI0...`
+3. Find the compromised token
 3. Click **Delete** or **Revoke**
 4. Create new token:
    - Click **Generate new token (classic)**
@@ -155,14 +155,9 @@ cd Linkedin-Post-Bot
 **Create patterns file:**
 ```powershell
 # Create file: secrets-to-remove.txt
-@"
-AIzaSyCJE68mgN7XdYh5rNSPHui
-WPL_AP1.zZAW2G8BlWjm8HeX
-github_pat_11BAYGHYI0
-gsk_gx3rK7pp3iTDJ4
-AQXro0Ks4o2c2vYxGua55s
-cJLnxL4gVZlRpG-VOVunp3l
-"@ | Out-File -FilePath secrets-to-remove.txt -Encoding UTF8
+# Add one secret fragment per line (the prefixes of each compromised key)
+# Example: AIzaSy..., WPL_AP..., github_pat_..., gsk_...
+# Do NOT commit this file — add it to .gitignore
 ```
 
 **Run filter-repo:**
@@ -277,5 +272,5 @@ pre-commit run --all-files
 
 ---
 
-**Last Updated:** December 20, 2025  
-**Incident Status:** Active - Awaiting credential rotation
+**Last Updated:** February 2026  
+**Incident Status:** Resolved — credentials rotated, secrets moved to environment variables, Fernet encryption enabled
