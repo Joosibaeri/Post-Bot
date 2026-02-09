@@ -188,6 +188,12 @@ NEVER USE THESE PHRASES (they make posts feel generic and inauthentic):
 - "Moving the needle" / "Low-hanging fruit"
 - "Circle back" / "Touch base"
 - "It goes without saying..."
+- "Ever had that moment..." / "Ever had..." (overused question opener)
+
+CRITICAL - OPENING LINE VARIETY:
+- NEVER start two posts the same way. Every post must have a unique opening.
+- Rotate between: statements, questions, numbers, micro-stories, hot takes, contradictions, scene-setting.
+- If generating multiple posts, each MUST use a DIFFERENT hook style.
 
 INSTEAD: Use specific, concrete language. Show enthusiasm through details, not buzzwords.
 """
@@ -214,14 +220,17 @@ TEMPLATES = {
 OBJECTIVE: Write a standard update about recent coding activity.
 
 STRUCTURE:
-1. Hook (1-2 sentences): CRITICAL - Use ONE of these hook styles (pick randomly):
+1. Hook (1-2 sentences): CRITICAL - Use ONE of these hook styles (pick randomly, VARY each time):
    * Bold statement: "Most developers get this wrong..."
    * Confession: "I'll admit it\u2014"
    * Number-led: "After 100 commits...", "3 things I learned..."
-   * Question: "Ever had that moment when...?"
-   * Scene-setting: "It was 2am. My code wasn't working."
+   * Question: "What if the bug IS the feature?", "Why does nobody talk about...?", "What's the one thing you wish you knew before...?"
+   * Scene-setting: "It was 2am. My code wasn't working.", "Picture this: a clean terminal, zero errors."
    * Contradiction: "Everyone says X. I disagree."
-   NEVER start with: "As I", "As a", "I just", "Just", "Today I", "Recently", "So I"
+   * Hot take: "Unpopular opinion:..."
+   * Micro-story: "I deleted 200 lines today. Best decision ever."
+   * Challenge: "Try this in your next project..."
+   NEVER start with: "As I", "As a", "I just", "Just", "Today I", "Recently", "So I", "Ever had"
 2. Body (3-5 sentences): Develop the idea with a specific example or experience
 3. Insight (1-2 sentences): What you learned and why it matters
 4. Call to Action (1 sentence): Engage your network
@@ -506,15 +515,31 @@ def build_system_prompt(
     unique_seed = str(uuid.uuid4())[:8]
     random_angle = random.choice([
         "focus on a surprising insight",
-        "lead with a bold statement",
-        "start with a question",
-        "share a mini-story",
-        "highlight a lesson learned",
-        "express genuine excitement",
+        "lead with a bold, contrarian statement",
+        "open with a specific number or stat",
+        "share a mini-story with a twist",
+        "highlight a lesson learned the hard way",
+        "express genuine excitement about a detail",
         "be reflective and thoughtful",
-        "add some humor",
-        "be motivational",
-        "be conversational"
+        "add some humor or self-deprecation",
+        "be motivational with a concrete example",
+        "be conversational, like texting a friend",
+        "start with a hot take or unpopular opinion",
+        "paint a quick scene, then deliver a punchline",
+        "challenge the reader with a provocative idea",
+        "confess a mistake and what you learned"
+    ])
+    
+    # Random opening style to force variety in the first line
+    random_opening = random.choice([
+        "Start with a BOLD STATEMENT (not a question)",
+        "Start with a NUMBER or STATISTIC",
+        "Start with a MICRO-STORY (one sentence scene)",
+        "Start with a HOT TAKE or UNPOPULAR OPINION",
+        "Start with a CONFESSION or ADMISSION",
+        "Start with a CONTRADICTION (X is wrong, here's why)",
+        "Start with a CHALLENGE to the reader",
+        "Start by SETTING A SCENE (time, place, situation)",
     ])
     
     uniqueness_prompt = f"""
@@ -522,11 +547,13 @@ def build_system_prompt(
 === CRITICAL: UNIQUENESS REQUIREMENT ===
 Generation ID: {unique_seed}
 Creative Angle: {random_angle}
+Opening Style: {random_opening}
 
 YOU MUST GENERATE A COMPLETELY UNIQUE POST:
 - NEVER repeat common LinkedIn phrases like "I'm excited to share" or "Here's what I learned"
+- NEVER start with "Ever had..." — this is BANNED
 - Use fresh metaphors and analogies
-- Start with a hook that's different from typical posts
+- Your FIRST LINE must follow the Opening Style directive above
 - Vary your sentence structure and length
 - Be creative, unexpected, and authentic
 - Each post should feel like a new creative work
