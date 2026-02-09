@@ -36,6 +36,9 @@ load_dotenv(backend_dir.parent / '.env')
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+
+from middleware.request_id import RequestIDMiddleware
 
 # Import configuration from core module
 from core.config import (
@@ -64,6 +67,20 @@ from services.db import connect_db, disconnect_db
 logger.info("Core services imported successfully")
 
 # =============================================================================
+# LIFESPAN CONTEXT MANAGER (replaces deprecated on_event)
+# =============================================================================
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: startup and shutdown hooks."""
+    # Startup
+    await connect_db()
+    logger.info("Application startup complete (Celery handles background tasks)")
+    yield
+    # Shutdown
+    await disconnect_db()
+    logger.info("Application shutdown complete")
+
+# =============================================================================
 # FASTAPI APP INITIALIZATION
 # =============================================================================
 app = FastAPI(
@@ -87,6 +104,7 @@ app = FastAPI(
     openapi_url="/openapi.json",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
     contact={
         "name": "LinkedIn Post Bot",
         "url": "https://github.com/cliff-de-tech/Linkedin-Post-Bot",
@@ -102,37 +120,12 @@ app = FastAPI(
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Global exception handler for unhandled errors."""
-    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
+    request_id = getattr(request.state, "request_id", "unknown")
+    logger.error(f"Unhandled exception on {request.method} {request.url.path} [req={request_id}]: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"error": "Internal Server Error", "detail": str(exc)},
+        content={"error": "Internal Server Error", "detail": "An unexpected error occurred", "request_id": request_id},
     )
-
-# =============================================================================
-# DATABASE LIFECYCLE HOOKS
-# =============================================================================
-@app.on_event("startup")
-async def startup():
-    """Initialize database connection pool.
-    
-    Note: Schema is managed by Alembic migrations.
-    Run 'alembic upgrade head' to apply migrations.
-    
-    Background Tasks: Scheduled post publishing is now handled by Celery.
-    The API server no longer runs background loops - this improves:
-    - Horizontal scaling (multiple API replicas without duplicate tasks)
-    - Reliability (tasks survive API restarts)
-    - Observability (Celery provides task monitoring)
-    """
-    await connect_db()
-    logger.info("Application startup complete (Celery handles background tasks)")
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    """Close database connection pool."""
-    await disconnect_db()
-    logger.info("Application shutdown complete")
 
 # =============================================================================
 # CORS MIDDLEWARE
@@ -147,6 +140,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request-ID tracing (runs after CORS so the header is always present)
+app.add_middleware(RequestIDMiddleware)
 
 # =============================================================================
 # ROUTER REGISTRATION
