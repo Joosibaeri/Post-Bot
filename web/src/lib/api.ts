@@ -179,6 +179,7 @@ export async function handleLinkedInCallback(): Promise<void> {
 interface RequestConfig {
   headers?: Record<string, string>;
   params?: Record<string, any>;
+  timeout?: number;
 }
 
 /**
@@ -213,6 +214,7 @@ async function get(url: string, config?: RequestConfig): Promise<{ data: any }> 
   const response = await fetch(fullUrl, {
     method: 'GET',
     headers,
+    signal: config?.timeout ? AbortSignal.timeout(config.timeout) : undefined,
   });
 
   if (!response.ok) {
@@ -252,11 +254,57 @@ async function post(url: string, body?: any, config?: RequestConfig): Promise<{ 
 }
 
 /**
+ * Generic HTTP DELETE request
+ */
+async function del(url: string, config?: RequestConfig): Promise<{ data: any }> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...config?.headers,
+  };
+
+  let fullUrl = `${API_BASE}${url}`;
+  if (config?.params) {
+    const params = new URLSearchParams();
+    Object.entries(config.params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) params.append(key, String(value));
+    });
+    const qs = params.toString();
+    if (qs) fullUrl += `?${qs}`;
+  }
+
+  const response = await fetch(fullUrl, { method: 'DELETE', headers });
+  if (!response.ok) throw new Error(`Failed to delete ${url}: ${response.statusText}`);
+  const data = await response.json();
+  return { data };
+}
+
+/**
+ * Generic HTTP PUT request
+ */
+async function put(url: string, body?: any, config?: RequestConfig): Promise<{ data: any }> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...config?.headers,
+  };
+
+  const response = await fetch(`${API_BASE}${url}`, {
+    method: 'PUT',
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!response.ok) throw new Error(`Failed to put ${url}: ${response.statusText}`);
+  const data = await response.json();
+  return { data };
+}
+
+/**
  * Default export with axios-like interface
  */
 export const api = {
   get,
   post,
+  delete: del,
+  put,
   generatePreview,
   publishPost,
   schedulePost,

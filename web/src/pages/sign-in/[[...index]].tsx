@@ -2,7 +2,12 @@ import { SignIn } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
-import InteractiveBackground from "@/components/ui/InteractiveBackground";
+import dynamic from "next/dynamic";
+
+const InteractiveBackground = dynamic(
+    () => import("@/components/ui/InteractiveBackground"),
+    { ssr: false, loading: () => null }
+);
 
 export default function SignInPage() {
     const [mounted, setMounted] = useState(false);

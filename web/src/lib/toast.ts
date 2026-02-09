@@ -1,8 +1,8 @@
 /**
  * Toast Notification Utility
  * 
- * Provides a simple console-based toast notification system.
- * This can be upgraded to use react-hot-toast or another UI library later.
+ * Provides toast notifications using react-hot-toast.
+ * The <Toaster /> component must be rendered in _app.tsx for these to display.
  * 
  * Usage:
  *   const id = showToast.success('Operation successful!');
@@ -10,121 +10,90 @@
  *   showToast.dismiss(id);
  */
 
-// Simple in-memory storage for toast IDs
-let toastIdCounter = 0;
-const activeToasts = new Set<string>();
-
-/**
- * Generate a unique toast ID
- */
-function generateId(): string {
-  toastIdCounter++;
-  return `toast-${toastIdCounter}-${Date.now()}`;
-}
-
-/**
- * Log a toast message to console
- */
-function logToast(type: string, message: string, id: string): void {
-  const timestamp = new Date().toISOString();
-  const prefix = `[${timestamp}] [TOAST:${type}] [${id}]`;
-  
-  switch (type) {
-    case 'success':
-      console.log(`✓ ${prefix} ${message}`);
-      break;
-    case 'error':
-      console.error(`✗ ${prefix} ${message}`);
-      break;
-    case 'warning':
-      console.warn(`⚠ ${prefix} ${message}`);
-      break;
-    case 'info':
-      console.info(`ℹ ${prefix} ${message}`);
-      break;
-    case 'loading':
-      console.log(`⏳ ${prefix} ${message}`);
-      break;
-    default:
-      console.log(`${prefix} ${message}`);
-  }
-}
+import toast from 'react-hot-toast';
 
 /**
  * Show a success toast notification
- * 
- * @param message - The success message to display
- * @returns The toast ID for dismissal
  */
 function success(message: string): string {
-  const id = generateId();
-  activeToasts.add(id);
-  logToast('success', message, id);
-  return id;
+  return toast.success(message, {
+    duration: 4000,
+    style: {
+      background: '#10B981',
+      color: '#fff',
+      borderRadius: '10px',
+    },
+    iconTheme: {
+      primary: '#fff',
+      secondary: '#10B981',
+    },
+  });
 }
 
 /**
  * Show an error toast notification
- * 
- * @param message - The error message to display
- * @returns The toast ID for dismissal
  */
 function error(message: string): string {
-  const id = generateId();
-  activeToasts.add(id);
-  logToast('error', message, id);
-  return id;
+  return toast.error(message, {
+    duration: 5000,
+    style: {
+      background: '#EF4444',
+      color: '#fff',
+      borderRadius: '10px',
+    },
+    iconTheme: {
+      primary: '#fff',
+      secondary: '#EF4444',
+    },
+  });
 }
 
 /**
  * Show an info toast notification
- * 
- * @param message - The info message to display
- * @returns The toast ID for dismissal
  */
 function info(message: string): string {
-  const id = generateId();
-  activeToasts.add(id);
-  logToast('info', message, id);
-  return id;
+  return toast(message, {
+    duration: 4000,
+    icon: 'ℹ️',
+    style: {
+      background: '#3B82F6',
+      color: '#fff',
+      borderRadius: '10px',
+    },
+  });
 }
 
 /**
  * Show a warning toast notification
- * 
- * @param message - The warning message to display
- * @returns The toast ID for dismissal
  */
 function warning(message: string): string {
-  const id = generateId();
-  activeToasts.add(id);
-  logToast('warning', message, id);
-  return id;
+  return toast(message, {
+    duration: 4000,
+    icon: '⚠️',
+    style: {
+      background: '#F59E0B',
+      color: '#fff',
+      borderRadius: '10px',
+    },
+  });
 }
 
 /**
  * Show a loading toast notification
- * 
- * @param message - The loading message to display
- * @returns The toast ID for dismissal
  */
 function loading(message: string): string {
-  const id = generateId();
-  activeToasts.add(id);
-  logToast('loading', message, id);
-  return id;
+  return toast.loading(message, {
+    style: {
+      borderRadius: '10px',
+    },
+  });
 }
 
 /**
  * Dismiss a toast notification
- * 
- * @param id - The toast ID to dismiss
  */
 function dismiss(id: string): void {
-  if (activeToasts.has(id)) {
-    activeToasts.delete(id);
-    console.log(`[TOAST] Dismissed: ${id}`);
-  }
+  toast.dismiss(id);
 }
 
 /**

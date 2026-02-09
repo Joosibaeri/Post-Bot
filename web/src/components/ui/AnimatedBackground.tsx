@@ -6,7 +6,12 @@
  */
 
 import React from 'react';
-import InteractiveBackground from './InteractiveBackground';
+import dynamic from 'next/dynamic';
+
+const InteractiveBackground = dynamic(
+    () => import('./InteractiveBackground'),
+    { ssr: false, loading: () => null }
+);
 
 interface AnimatedBackgroundProps {
     /** Intensity of colors (lower = more subtle) */
