@@ -219,6 +219,7 @@ async def init_tables():
             user_id TEXT UNIQUE,
             github_username TEXT,
             preferences TEXT DEFAULT '{}',
+            persona TEXT DEFAULT '{}',
             onboarding_complete INTEGER DEFAULT 0,
             subscription_tier TEXT DEFAULT 'free',
             subscription_status TEXT DEFAULT 'active',
@@ -227,6 +228,12 @@ async def init_tables():
             updated_at BIGINT
         )
     """)
+    
+    # Add persona column if missing (for existing databases)
+    try:
+        await db.execute("ALTER TABLE user_settings ADD COLUMN persona TEXT DEFAULT '{}'")
+    except Exception:
+        pass  # Column already exists
     
     # =========================================================================
     # TABLE: post_history (from post_history.py)
