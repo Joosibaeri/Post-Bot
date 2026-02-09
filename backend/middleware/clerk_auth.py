@@ -7,11 +7,14 @@ It validates tokens using Clerk's JWKS (JSON Web Key Set) endpoint.
 
 import os
 import jwt
+import time
 import requests
-from functools import lru_cache
+import logging
 from typing import Optional
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+logger = logging.getLogger(__name__)
 
 # Clerk configuration
 CLERK_ISSUER = os.getenv('CLERK_ISSUER', '')  # e.g., https://your-clerk-instance.clerk.accounts.dev
@@ -20,19 +23,33 @@ CLERK_JWKS_URL = f"{CLERK_ISSUER}/.well-known/jwks.json" if CLERK_ISSUER else No
 # Security scheme
 security = HTTPBearer(auto_error=False)
 
+# JWKS cache with TTL (1 hour)
+_jwks_cache = None
+_jwks_cache_time = 0
+JWKS_CACHE_TTL = 3600  # 1 hour
 
-@lru_cache(maxsize=1)
+
 def get_jwks():
-    """Fetch and cache the JWKS from Clerk."""
+    """Fetch and cache the JWKS from Clerk with TTL-based expiry."""
+    global _jwks_cache, _jwks_cache_time
+    
     if not CLERK_JWKS_URL:
         return None
+    
+    # Return cached JWKS if still valid
+    if _jwks_cache and (time.time() - _jwks_cache_time) < JWKS_CACHE_TTL:
+        return _jwks_cache
+    
     try:
         response = requests.get(CLERK_JWKS_URL, timeout=10)
         response.raise_for_status()
-        return response.json()
+        _jwks_cache = response.json()
+        _jwks_cache_time = time.time()
+        return _jwks_cache
     except Exception as e:
-        print(f"Failed to fetch JWKS: {e}")
-        return None
+        logger.error(f"Failed to fetch JWKS: {e}")
+        # Return stale cache if available
+        return _jwks_cache
 
 
 def get_signing_key(token: str):
@@ -53,7 +70,7 @@ def get_signing_key(token: str):
         
         return None
     except Exception as e:
-        print(f"Error getting signing key: {e}")
+        logger.error(f"Error getting signing key: {e}")
         return None
 
 
@@ -66,7 +83,7 @@ def verify_clerk_token(token: str) -> Optional[dict]:
     # Dev mode: only if EXPLICITLY enabled AND no issuer configured
     DEV_MODE = os.getenv('DEV_MODE', 'false').lower() == 'true'
     if not CLERK_ISSUER and DEV_MODE:
-        print("⚠️  DEV MODE: Clerk not configured, using test user")
+        logger.warning("DEV MODE: Clerk not configured, using test user")
         return {"sub": "dev_user", "dev_mode": True}
     
     signing_key = get_signing_key(token)
@@ -87,10 +104,10 @@ def verify_clerk_token(token: str) -> Optional[dict]:
         )
         return payload
     except jwt.ExpiredSignatureError:
-        print("Token has expired")
+        logger.debug("Token has expired")
         return None
     except jwt.InvalidTokenError as e:
-        print(f"Invalid token: {e}")
+        logger.debug(f"Invalid token: {e}")
         return None
 
 
