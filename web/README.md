@@ -11,6 +11,7 @@ A modern, production-ready web application for generating high-quality LinkedIn 
   - **Stats Overview**: Track your generation and publishing metrics.
   - **Post Queue**: Manage, edit, and schedule drafted posts.
   - **Bot Mode Panel**: One-click scan → generate → review → publish workflow.
+  - **AI Status Messages**: Personalised chat-bubble feedback with typewriter animation during all operations.
 - **Post Scheduling**: Schedule posts for future publication via Celery + Redis.
 - **Persona System**: AI writing persona quiz that tailors post tone and style.
 - **Premium UX**:
@@ -19,6 +20,7 @@ A modern, production-ready web application for generating high-quality LinkedIn 
   - **Responsive Design**: Optimized for mobile and desktop.
   - **Focus Trapping**: Full keyboard accessibility in modals.
   - **ARIA Support**: Proper labels, roles, and associations throughout.
+  - **Glassmorphism Auth Pages**: Redesigned sign-up/sign-in with gradient panels and trust signals.
 - **Secure Authentication**: Powered by Clerk for robust user management.
 - **Payments**: Stripe integration with free/pro/enterprise tiers.
 
@@ -44,7 +46,7 @@ web/
 │   │   ├── dashboard/    # Dashboard widgets (11 components)
 │   │   ├── modals/       # Dialog components (5 modals)
 │   │   ├── settings/     # Persona quiz & settings
-│   │   ├── ui/           # Reusable primitives (19 components)
+│   │   ├── ui/           # Reusable primitives (20 components, incl. AIStatusMessage)
 │   │   └── landing/      # Landing page sections
 │   ├── hooks/            # Custom React hooks
 │   │   ├── useDashboardData.ts   # Data fetching

@@ -40,6 +40,7 @@ It's built for developers who want to grow their professional presence without s
 | **Post Editor** | Manual writing with character counter and preview |
 | **Image Integration** | Optional Unsplash images for visual posts |
 | **Payments** | Stripe integration with free/pro/enterprise tiers |
+| **AI Status Messages** | Real-time, personalised chat-bubble feedback during all AI operations |
 | **CLI Bot Mode** | Standalone script for scheduled, automated posting |
 
 ## What This App Does NOT Do ❌
@@ -71,6 +72,9 @@ It's built for developers who want to grow their professional presence without s
 - **Character Counter**: LinkedIn's 3000-character limit enforced
 - **Post Scheduling**: Schedule posts for future publication dates
 - **Persona System**: AI writing persona quiz and customization
+- **AI Status Messages**: Personalised typewriter-animated chat bubbles during all AI operations
+- **Sign-Up/Sign-In UX**: Glassmorphism right panels with trust signals and feature highlights
+- **Production Readiness**: Redis-backed rate limiter, DB health probe, environment validation
 - **Focus Trapping**: Full keyboard accessibility in modals
 - **Request Tracing**: X-Request-ID middleware for distributed tracing
 - **Stripe Payments**: Subscription tiers with usage-based limits
@@ -138,7 +142,43 @@ It's built for developers who want to grow their professional presence without s
 
 ## 🆕 Recent Updates (February 2026)
 
-### AI & Personas 🧠
+### Interactive AI Status Messages 🤖
+
+- **Personalised Chat Bubbles**: New `AIStatusMessage` component with typewriter animation shows real-time, named messages from the bot during all AI operations (scan, generate, publish).
+- **Phase-Based Feedback**: Operations display multi-step progress (e.g., "Hey Alex! 🔍 Let me scan your GitHub activity..." → "All done! 🎉 I found 5 activities worth posting about.").
+- **`useAIStatus` Hook**: Reusable state management hook with `show()`, `update()`, `complete()`, `error()`, and `dismiss()` lifecycle methods.
+- **Auto-Dismiss**: Status messages auto-dismiss ~4.5s after completion; users can also manually close them.
+
+### Production Readiness 🏭
+
+- **Redis-Backed Rate Limiter**: Production rate limiting uses Redis; graceful in-memory fallback for local dev.
+- **Database Health Probe**: `/health` endpoint now verifies DB connectivity (not just HTTP 200).
+- **Environment Validation**: `validate_environment()` runs at startup — warns about missing optional keys, fails fast on required ones.
+- **DEV_MODE Gating**: Development-only bypass routes require explicit `DEV_MODE=true` environment variable.
+- **Database Env Var**: Falls back to SQLite only when `DATABASE_URL` is absent; production requires PostgreSQL.
+
+### Sign-Up / Sign-In UX Redesign ✨
+
+- **Glassmorphism Panels**: Right-side panels on sign-up and sign-in pages with gradient backgrounds and frosted-glass cards.
+- **Trust Signals**: Real metrics ("500+ developers", "10K+ posts generated") displayed alongside the auth forms.
+- **Quick Stats Grid**: Feature highlights with icons — AI-Powered, GitHub Sync, Smart Scheduling, Analytics.
+- **Consistent Branding**: Both auth pages share the same visual language as the landing page.
+
+### Persona Pipeline Strengthening 🧠
+
+- **Auto-Refresh Patterns**: Learned writing patterns refresh automatically after each successful LinkedIn publish.
+- **Persona Complete Flag**: `connection-status` endpoint returns `persona_complete` boolean.
+- **Dashboard Nudge**: Banner prompts users to complete their persona quiz when incomplete.
+- **Deep-Link Anchor**: Settings page `#persona` anchor for direct navigation to the persona section.
+- **Repository SQL**: Persona field now included in settings repository INSERT/UPDATE operations.
+
+### Onboarding & Auth Fixes 🔧
+
+- **Auth Token on API Calls**: Onboarding page now sends Clerk JWT token on all 3 API calls (save, connection-status, complete).
+- **Auto Table Creation**: `init_tables()` runs on app startup to auto-create missing DB tables.
+- **Persona Column Fix**: `init_tables()` DDL and ALTER TABLE fallback ensure the `persona` column exists in `user_settings`.
+
+### AI & Personas (Earlier Feb 2026)
 
 - **Mistral AI Provider**: Added Mistral (`mistral-large-latest`) as a fourth AI provider alongside Groq, OpenAI, and Anthropic.
 - **AI Client Singletons**: Lazy-loaded singleton pattern for all AI SDK clients — eliminates redundant initialization.
@@ -935,11 +975,11 @@ curl https://your-backend.railway.app/openapi.json > openapi.json
 linkedin-post-bot/
 ├── web/                        # Next.js Frontend
 │   ├── src/pages/              # Dashboard, Settings, Onboarding, Pricing, etc.
-│   ├── src/components/         # UI Components (45+)
+│   ├── src/components/         # UI Components (50+)
 │   │   ├── dashboard/          # Dashboard widgets (11 components)
 │   │   ├── modals/             # Dialog components (5 modals)
 │   │   ├── settings/           # Persona quiz & settings
-│   │   ├── ui/                 # Reusable primitives (19 components)
+│   │   ├── ui/                 # Reusable primitives (20 components, incl. AIStatusMessage)
 │   │   └── landing/            # Landing page sections
 │   ├── src/hooks/              # Custom hooks (useDashboardData, useFocusTrap, etc.)
 │   ├── src/lib/                # API client, toast utility
@@ -1095,6 +1135,10 @@ CLI (bot.py)                Web (backend/app.py)
 - [x] Multi-provider AI (Groq, OpenAI, Anthropic, Mistral)
 - [x] Stripe payment integration
 - [x] Full accessibility (ARIA, focus trapping, keyboard nav)
+- [x] Interactive AI status messages (personalised chat bubbles)
+- [x] Production readiness hardening (health probes, env validation, Redis rate limiter)
+- [x] Sign-up/sign-in UX redesign (glassmorphism panels)
+- [x] Persona pipeline auto-refresh on publish
 
 ### 🚀 Mid Term (1–3 months)
 

@@ -96,11 +96,11 @@ npm run dev
 linkedin-post-bot/
 ├── web/                    # Next.js 14 Frontend
 │   ├── src/pages/          # Page routes (15+ pages)
-│   ├── src/components/     # React components (45+)
+│   ├── src/components/     # React components (50+)
 │   │   ├── dashboard/      # Dashboard widgets (11)
 │   │   ├── modals/         # Dialog components (5)
 │   │   ├── settings/       # Persona quiz & settings
-│   │   └── ui/             # Reusable primitives (19)
+│   │   └── ui/             # Reusable primitives (20, incl. AIStatusMessage)
 │   ├── src/hooks/          # Custom hooks
 │   ├── src/lib/            # API client, toast utility
 │   └── __tests__/          # Jest test suite

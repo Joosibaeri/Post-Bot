@@ -57,6 +57,9 @@ backend/
 | `/api/post/schedule` | POST | Schedule a future post |
 | `/api/github/scan` | POST | Scan GitHub activity |
 | `/api/publish/full` | POST | Full publish with image (auth required) |
+| `/api/post/bot-stats` | GET | Bot mode historical stats |
+| `/api/post/generate-batch` | POST | Batch AI generation for bot mode |
+| `/api/connection-status/{user_id}` | GET | LinkedIn/GitHub connection status + persona_complete flag |
 | `/docs` | GET | Swagger UI documentation |
 | `/openapi.json` | GET | OpenAPI 3.0 spec |
 
@@ -74,9 +77,18 @@ All data endpoints require Clerk JWT authentication via `Authorization: Bearer <
 ## Database
 
 - **Production**: PostgreSQL via asyncpg with configurable connection pooling (`DB_POOL_SIZE`, `DB_MAX_OVERFLOW`)
-- **Development**: SQLite fallback (auto-created as `dev_database.db`)
+- **Development**: SQLite fallback (auto-created as `dev_database.db`); `init_tables()` runs on startup to ensure schema exists
 - **Migrations**: Alembic (`alembic upgrade head` / `alembic revision --autogenerate`)
 - **Schema**: SQLAlchemy 2.0 declarative models in `database/schema.py`
+- **Health Check**: `/health` endpoint validates DB connectivity, not just HTTP 200
+
+## Recent Changes
+
+- **Environment Validation**: `validate_environment()` at startup warns about missing optional keys, fails fast on required ones
+- **Auto Table Creation**: `init_tables()` called during app lifespan startup with ALTER TABLE fallbacks for schema evolution
+- **Persona Pipeline**: Auto-refresh learned patterns after successful LinkedIn publish; `persona_complete` flag in connection-status
+- **DEV_MODE Gating**: Dev bypass routes require explicit `DEV_MODE=true` environment variable
+- **Redis Rate Limiter**: Production rate limiting backed by Redis with in-memory fallback for local dev
 
 ## Testing
 
