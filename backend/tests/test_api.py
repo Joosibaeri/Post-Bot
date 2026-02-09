@@ -70,18 +70,21 @@ class TestSettingsEndpoint:
     """Tests for the /api/settings endpoints."""
     
     def test_get_nonexistent_user_settings(self, sync_test_client: TestClient):
-        """Getting settings for non-existent user should return error."""
-        response = sync_test_client.get("/api/settings/nonexistent_user_xyz")
+        """Getting settings for non-existent user should return error or empty data.
+        
+        Uses the mock auth user_id so the ownership check passes.
+        """
+        response = sync_test_client.get("/api/settings/test_user_dev")
         
         assert response.status_code == 200
         data = response.json()
-        # Should return error for non-existent user
-        assert "error" in data or "user_id" in data  # Either error or empty data
+        # Should return error for non-existent user or empty defaults
+        assert "error" in data or "user_id" in data
     
     def test_settings_endpoint_accepts_user_id(self, sync_test_client: TestClient):
         """Settings endpoint should accept user_id in path."""
-        # Just verify the endpoint exists and accepts the path parameter
-        response = sync_test_client.get("/api/settings/test_user_123")
+        # Use the mock auth user_id so ownership check passes
+        response = sync_test_client.get("/api/settings/test_user_dev")
         
         assert response.status_code == 200
         # Response should be JSON
@@ -167,7 +170,7 @@ class TestPublishEndpoint:
         response = sync_test_client.post(
             "/api/publish/full",
             json={
-                "user_id": "test_user",
+                "user_id": "test_user_dev",
                 "post_content": "This is a test post for LinkedIn!",
                 "test_mode": True
             }
@@ -185,7 +188,7 @@ class TestPublishEndpoint:
         response = sync_test_client.post(
             "/api/publish/full",
             json={
-                "user_id": "test_user",
+                "user_id": "test_user_dev",
                 "post_content": "Test content",
                 "test_mode": True
             }

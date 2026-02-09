@@ -17,19 +17,30 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 
+# ---------------------------------------------------------------------------
+# Auth dependency override – provides a fake user for protected endpoints
+# ---------------------------------------------------------------------------
+_FAKE_AUTH_USER = {"user_id": "test_user_dev", "email": "test@example.com", "dev_mode": True}
+
+
 @pytest.fixture
 def test_client():
     """Create a FastAPI test client."""
     from httpx import AsyncClient, ASGITransport
     from app import app
-    
+    from middleware.clerk_auth import require_auth, get_current_user
+
+    # Override auth dependencies so tests don't need real tokens
+    app.dependency_overrides[require_auth] = lambda: _FAKE_AUTH_USER
+    app.dependency_overrides[get_current_user] = lambda: _FAKE_AUTH_USER
+
     # Create async client with ASGI transport
     transport = ASGITransport(app=app)
-    
+
     async def get_client():
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             yield client
-    
+
     return get_client
 
 
@@ -38,6 +49,12 @@ def sync_test_client():
     """Create a synchronous test client for simple tests."""
     from fastapi.testclient import TestClient
     from app import app
+    from middleware.clerk_auth import require_auth, get_current_user
+
+    # Override auth dependencies so tests don't need real tokens
+    app.dependency_overrides[require_auth] = lambda: _FAKE_AUTH_USER
+    app.dependency_overrides[get_current_user] = lambda: _FAKE_AUTH_USER
+
     return TestClient(app)
 
 

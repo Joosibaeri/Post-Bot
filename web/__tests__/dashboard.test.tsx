@@ -30,6 +30,10 @@ jest.mock('@/lib/api', () => ({
   generatePreview: jest.fn(),
   publishPost: jest.fn(),
   schedulePost: jest.fn(),
+  api: {
+    post: jest.fn().mockResolvedValue({ data: { authenticated: true } }),
+    get: jest.fn().mockResolvedValue({ data: { posts: [] } }),
+  },
 }));
 
 // Mock Components that might cause issues in simple tests
@@ -112,8 +116,10 @@ describe('Dashboard Component', () => {
   it('renders the dashboard when authenticated', async () => {
     render(<Dashboard />);
     
-    // Check for main title
-    expect(screen.getByText('Content Generator')).toBeInTheDocument();
+    // Wait for the async auth check to resolve and re-render
+    await waitFor(() => {
+      expect(screen.getByText('Content Generator')).toBeInTheDocument();
+    });
     
     // Check for mocked child components
     expect(screen.getByTestId('stats-overview')).toBeInTheDocument();
@@ -128,6 +134,11 @@ describe('Dashboard Component', () => {
     });
 
     render(<Dashboard />);
+
+    // Wait for the async auth check to resolve and dashboard to render
+    await waitFor(() => {
+      expect(screen.getByTestId('generate-btn')).toBeInTheDocument();
+    });
 
     // Find and click the generate button (inside our mocked PostEditor)
     const generateBtn = screen.getByTestId('generate-btn');
