@@ -14,6 +14,7 @@ import Analytics from '@/components/dashboard/Analytics';
 import ScheduleModal from '@/components/modals/ScheduleModal';
 import TemplateLibrary from '@/components/dashboard/TemplateLibrary';
 import { BotModePanel } from '@/components/dashboard/BotModePanel';
+import { AIStatusMessage, useAIStatus } from '@/components/ui/AIStatusMessage';
 import { ImageSelector } from '@/components/dashboard/ImageSelector';
 import { GitHubActivity, Template, PostContext } from '@/types/dashboard';
 import UsageCounter from '@/components/ui/UsageCounter';
@@ -89,6 +90,8 @@ export default function Dashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
+  const ai = useAIStatus();
+  const firstName = user?.firstName || 'there';
 
   // Computed: is daily limit reached?
   const isLimitReached = usage?.posts_remaining === 0;
@@ -210,19 +213,25 @@ export default function Dashboard() {
   const handleGeneratePreview = async (model: 'groq' | 'openai' | 'anthropic' = 'groq') => {
     setLoading(true);
     setStatus('');
-    const toastId = showToast.loading('Generating preview...');
+    ai.show(`Let me craft something amazing for you, ${firstName}... ✍️`);
     try {
       // Get session token for authenticated API call
       const token = await getToken();
-      const result = await generatePreview({ context, user_id: userId, model }, token || undefined);
-      setPreview(result.post || 'No post generated');
-      showToast.dismiss(toastId);
 
-      // Show provider info if available
+      // Add a progress message while waiting
+      const progressTimer = setTimeout(() => {
+        ai.update('Almost there, adding the finishing touches... ✨');
+      }, 2500);
+
+      const result = await generatePreview({ context, user_id: userId, model }, token || undefined);
+      clearTimeout(progressTimer);
+      setPreview(result.post || 'No post generated');
+
+      // Show completion via AI status
       if (result.was_downgraded) {
-        showToast.success('Preview generated! (Using free model - upgrade to Pro for premium AI)');
+        ai.complete(`Your post is ready, ${firstName}! 👀 (Using free model — upgrade to Pro for premium AI)`);
       } else {
-        showToast.success(`Preview generated with ${result.provider || model}!`);
+        ai.complete(`Your post is ready! 🚀 Generated with ${result.provider || model}.`);
       }
 
       // Save as draft
@@ -232,9 +241,8 @@ export default function Dashboard() {
       await refetchStats();
       await refetchPosts();
     } catch (error: unknown) {
-      showToast.dismiss(toastId);
       const message = error instanceof Error ? error.message : 'An error occurred';
-      showToast.error('Error: ' + message);
+      ai.error(`Oops! Something went wrong — ${message}`);
     } finally {
       setLoading(false);
     }
@@ -263,15 +271,20 @@ export default function Dashboard() {
   const handlePublish = async (testMode: boolean) => {
     setLoading(true);
     setStatus('');
-    const toastId = showToast.loading(testMode ? 'Generating preview...' : 'Publishing post...');
+    ai.show(testMode
+      ? `Generating a test preview for you, ${firstName}... 🧪`
+      : `Sending your post to LinkedIn, ${firstName}... 🚀`);
     try {
       const token = await getToken();
       const result = await publishPost(
         { context, test_mode: testMode, user_id: userId },
         token || undefined
       );
-      showToast.dismiss(toastId);
-      showToast.success(testMode ? 'Preview generated!' : 'Post published successfully!');
+      if (testMode) {
+        ai.complete(`Test preview is ready, ${firstName}! ✅ No real post was created.`);
+      } else {
+        ai.complete(`Posted! 🎉 Your network is gonna love this, ${firstName}!`);
+      }
       if (result.post) {
         setPreview(result.post);
         await savePost(result.post, testMode ? 'draft' : 'published');
@@ -296,9 +309,8 @@ export default function Dashboard() {
         }
       }
     } catch (error: unknown) {
-      showToast.dismiss(toastId);
       const message = error instanceof Error ? error.message : 'An error occurred';
-      showToast.error('Error: ' + message);
+      ai.error(`Oops! Something went wrong — ${message}`);
     } finally {
       setLoading(false);
     }
@@ -536,6 +548,7 @@ export default function Dashboard() {
         <div className="my-8">
           <BotModePanel
             userId={userId}
+            userName={firstName}
             postsRemaining={usage?.posts_remaining ?? 10}
             tier={usage?.tier ?? 'free'}
             isLimitReached={isLimitReached ?? false}
@@ -545,6 +558,12 @@ export default function Dashboard() {
 
         {/* Quick Action Buttons */}
         <div className="flex flex-wrap gap-3 mb-8">
+
+          {/* AI Status Messages for Manual Mode */}
+          <div className="w-full">
+            <AIStatusMessage messages={ai.messages} isActive={ai.isActive} dismiss={ai.dismiss} />
+          </div>
+
           <button
             onClick={() => setShowAnalytics(!showAnalytics)}
             className="px-4 py-2 bg-white dark:bg-white/5 border-2 border-green-200 dark:border-green-500/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-50 dark:hover:bg-green-500/10 transition-all flex items-center"

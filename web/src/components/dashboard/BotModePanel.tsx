@@ -15,6 +15,7 @@ import { NoActivitiesState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Card } from '@/components/ui/Card';
+import { AIStatusMessage, useAIStatus } from '@/components/ui/AIStatusMessage';
 
 // Import API types from shared contracts
 import type {
@@ -52,6 +53,7 @@ interface UnsplashImage {
 
 interface BotModePanelProps {
     userId: string;
+    userName?: string;
     postsRemaining?: number;
     tier?: string;
     isLimitReached?: boolean;  // True when daily publish limit hit (10/10)
@@ -86,8 +88,10 @@ const AI_MODELS = [
     { value: 'claude', label: 'Claude', icon: '🎭', freeAvailable: false }
 ];
 
-export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLimitReached = false }: BotModePanelProps) {
+export function BotModePanel({ userId, userName, postsRemaining = 10, tier = 'free', isLimitReached = false }: BotModePanelProps) {
     const { getToken } = useAuth();
+    const ai = useAIStatus();
+    const name = userName || 'there';
 
     // State
     const [activities, setActivities] = useState<Activity[]>([]);
@@ -150,6 +154,7 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
         setScanning(true);
         setShowSuggestions(false);
         setSuggestedActivities([]);
+        ai.show(`Hey ${name}! 🔍 Let me scan your GitHub activity...`);
 
         try {
             const hours = searchDays * 24;
@@ -163,7 +168,7 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
             });
 
             if (response.data.error) {
-                showToast.error(response.data.error);
+                ai.error(`Hmm, something went wrong — ${response.data.error}`);
                 return;
             }
 
@@ -175,7 +180,7 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
                 setSuggestedActivities(allActivities);
                 setShowSuggestions(true);
                 const typeName = ACTIVITY_TYPES.find(t => t.value === activityType)?.label || activityType;
-                showToast.error(`No ${typeName} found. Showing alternatives.`);
+                ai.complete(`No ${typeName} found, but I spotted ${allActivities.length} other activities you might like!`);
                 setActivities([]);
                 setStep('scanned');
                 return;
@@ -184,18 +189,18 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
             setActivities(filteredActivities);
 
             if (filteredActivities.length === 0) {
-                showToast.error(`No GitHub activity found in the last ${searchDays} day${searchDays > 1 ? 's' : ''}`);
+                ai.complete(`I didn't find any GitHub activity in the last ${searchDays} day${searchDays > 1 ? 's' : ''}, ${name}. Try a longer time range!`);
             } else {
-                showToast.success(`Found ${filteredActivities.length} activities!`);
+                ai.complete(`All done, ${name}! 🎉 I found ${filteredActivities.length} activit${filteredActivities.length === 1 ? 'y' : 'ies'} worth posting about.`);
                 setStep('scanned');
             }
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            showToast.error('Failed to scan GitHub: ' + errorMessage);
+            ai.error(`Oops! Failed to scan GitHub — ${errorMessage}`);
         } finally {
             setScanning(false);
         }
-    }, [userId, searchDays, activityType]);
+    }, [userId, searchDays, activityType, name]);
 
     // Generate posts for selected activities
     const handleGeneratePosts = useCallback(async (selectedActivities?: Activity[]) => {
@@ -207,7 +212,12 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
         }
 
         setGenerating(true);
-        const toastId = showToast.loading(`Generating ${toGenerate.length} posts...`);
+        ai.show(`Time to put my skills to work, ${name}! ✨ Crafting ${toGenerate.length} post${toGenerate.length === 1 ? '' : 's'}...`);
+
+        // Add a progress message after a short delay
+        const progressTimer = setTimeout(() => {
+            ai.update('Working my magic on your code stories... 🪄');
+        }, 3000);
 
         try {
             const token = await getToken();
@@ -220,10 +230,10 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            showToast.dismiss(toastId);
+            clearTimeout(progressTimer);
 
             if (response.data.error) {
-                showToast.error(response.data.error);
+                ai.error(`Hmm, something went wrong — ${response.data.error}`);
                 return;
             }
 
@@ -240,20 +250,21 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
             const successCount = response.data.generated_count || 0;
             const failedCount = response.data.failed_count || 0;
 
-            if (successCount > 0) {
-                showToast.success(`Generated ${successCount} posts!`);
-            }
-            if (failedCount > 0) {
-                showToast.error(`${failedCount} posts failed to generate`);
+            if (successCount > 0 && failedCount === 0) {
+                ai.complete(`Boom! 🚀 ${successCount} post${successCount === 1 ? '' : 's'} ready for your review, ${name}!`);
+            } else if (successCount > 0 && failedCount > 0) {
+                ai.complete(`Done! ${successCount} post${successCount === 1 ? '' : 's'} ready, but ${failedCount} couldn't be generated.`);
+            } else {
+                ai.error(`I couldn't generate the posts this time. Let's try again!`);
             }
         } catch (error: unknown) {
-            showToast.dismiss(toastId);
+            clearTimeout(progressTimer);
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            showToast.error('Failed to generate posts: ' + errorMessage);
+            ai.error(`Oops! Failed to generate posts — ${errorMessage}`);
         } finally {
             setGenerating(false);
         }
-    }, [activities, userId, getToken, selectedTemplate, selectedModel]);
+    }, [activities, userId, getToken, selectedTemplate, selectedModel, name]);
 
     // Load images for a post
     const handleLoadImages = useCallback(async (postId: string) => {
@@ -310,6 +321,7 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
         if (!post || !post.content) return;
 
         setPublishingId(postId);
+        ai.show(`${testMode ? '🧪 Test-publishing' : '📤 Publishing'} your post to LinkedIn, ${name}...`);
 
         try {
             const token = await getToken();
@@ -324,14 +336,14 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
             });
 
             if (response.data.error) {
-                showToast.error(response.data.error);
+                ai.error(`Hmm, couldn't publish — ${response.data.error}`);
                 return;
             }
 
             if (response.data.test_mode) {
-                showToast.success('Test publish successful! (No real post created)');
+                ai.complete(`Test publish worked perfectly, ${name}! ✅ No real post was created.`);
             } else {
-                showToast.success('Published to LinkedIn! 🎉');
+                ai.complete(`Your post is live on LinkedIn! 🎉 Great work, ${name}!`);
                 setPosts(prev => prev.map(p =>
                     p.id === postId ? { ...p, status: 'published' as const } : p
                 ));
@@ -343,11 +355,11 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
             }
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            showToast.error('Failed to publish: ' + errorMessage);
+            ai.error(`Failed to publish — ${errorMessage}`);
         } finally {
             setPublishingId(null);
         }
-    }, [posts, userId, testMode]);
+    }, [posts, userId, testMode, name]);
 
     // Reset to start over
     const handleReset = useCallback(() => {
@@ -424,6 +436,9 @@ export function BotModePanel({ userId, postsRemaining = 10, tier = 'free', isLim
                     <span>Published</span>
                 </div>
             </div>
+
+            {/* AI Status Messages */}
+            <AIStatusMessage messages={ai.messages} isActive={ai.isActive} dismiss={ai.dismiss} />
 
             {/* Main content based on step */}
             {step === 'idle' && (
