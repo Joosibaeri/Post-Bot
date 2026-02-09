@@ -12,7 +12,7 @@
  */
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { useUser } from '@clerk/nextjs';
+import { useUser, useAuth } from '@clerk/nextjs';
 import { api } from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import SEOHead from '@/components/SEOHead';
@@ -24,6 +24,7 @@ import PersonaQuiz from '@/components/settings/PersonaQuiz';
 export default function Onboarding() {
   const router = useRouter();
   const { user, isLoaded, isSignedIn } = useUser();
+  const { getToken } = useAuth();
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -86,7 +87,10 @@ export default function Onboarding() {
 
     const checkSettings = async () => {
       try {
-        const response = await api.get(`/api/connection-status/${userId}`);
+        const token = await getToken();
+        const response = await api.get(`/api/connection-status/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         if (response.data && !response.data.error) {
           if (response.data.github_username) {
             setGithubUsername(response.data.github_username);
@@ -119,9 +123,12 @@ export default function Onboarding() {
     const timeoutId = setTimeout(async () => {
       setIsSavingUsername(true);
       try {
+        const token = await getToken();
         await api.post('/api/settings', {
           user_id: userId,
           github_username: githubUsername.trim()
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
         });
         setSavedGithubUsername(githubUsername.trim());
         setIsUsernameSaved(true);
@@ -187,10 +194,13 @@ export default function Onboarding() {
     const toastId = showToast.loading('Saving...');
 
     try {
+      const token = await getToken();
       await api.post('/api/settings', {
         user_id: userId,
         github_username: githubUsername.trim(),
         onboarding_complete: true
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       showToast.dismiss(toastId);
