@@ -1159,6 +1159,27 @@ Output ONLY the tweet text, nothing else."""
         # Strip markdown just in case
         tweet = strip_markdown(tweet)
 
+        # Ensure the repo link is included in the tweet
+        if repo_link and repo_link not in tweet:
+            logger.info("Tweet missing repo link — appending it")
+            # Calculate space needed: newline + link
+            link_suffix = "\n" + repo_link
+            max_text_len = 280 - len(link_suffix)
+            if len(tweet) > max_text_len:
+                # Trim tweet to make room for the link
+                trimmed = tweet[:max_text_len]
+                # Cut at last sentence boundary or space
+                last_punc = max(trimmed.rfind('.'), trimmed.rfind('!'), trimmed.rfind('?'))
+                if last_punc > 80:
+                    trimmed = trimmed[:last_punc + 1]
+                else:
+                    last_space = trimmed.rfind(' ')
+                    if last_space > 80:
+                        trimmed = trimmed[:last_space]
+                tweet = trimmed + link_suffix
+            else:
+                tweet = tweet.rstrip() + link_suffix
+
         # Hard enforce 280 char limit
         if len(tweet) > 280:
             # Try to cut at last complete sentence that fits
