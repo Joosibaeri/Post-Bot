@@ -325,4 +325,33 @@ async def init_tables():
         )
     """)
     
-    logger.info("Database tables initialized successfully")
+    # =========================================================================
+    # TABLE: subscriptions (from schema.py)
+    # Stores Stripe subscription data linked to users
+    # =========================================================================
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL UNIQUE,
+            stripe_customer_id TEXT UNIQUE,
+            stripe_subscription_id TEXT UNIQUE,
+            plan_id TEXT,
+            status TEXT DEFAULT 'inactive',
+            current_period_start BIGINT,
+            current_period_end BIGINT,
+            cancel_at_period_end INTEGER DEFAULT 0,
+            created_at BIGINT,
+            updated_at BIGINT
+        )
+    """)
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id)"
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_subscriptions_customer ON subscriptions(stripe_customer_id)"
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status)"
+    )
+    
+    logger.info("Database tables initialized successfully (7 tables)")

@@ -487,6 +487,19 @@ def get_random_hook() -> str:
     logger.info("Hook chosen: '%s' (previous was '%s')", chosen, last_hook or 'none')
     return chosen
 
+def _looks_complete(text: str) -> bool:
+    """Check whether a generated post looks complete (has hashtags line)."""
+    if not text or len(text.strip()) < 150:
+        return False
+    lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
+    if not lines:
+        return False
+    last = lines[-1]
+    # MUST have hashtags line with 8-20 hashtags
+    tags = [w for w in last.split() if w.startswith('#')]
+    return 8 <= len(tags) <= 20
+
+
 def generate_post_with_ai(context_data: Dict[str, Any]) -> Optional[str]:
     """Use Groq/Mistral AI to draft a LinkedIn post based on context."""
     logger.info("AI is thinking and drafting your post...")
@@ -675,21 +688,11 @@ Requirements:
             post_content = response.choices[0].message.content.strip()
 
         # Ensure the model didn't cut off mid-sentence or omit required hashtags
-        def _looks_complete(text: str) -> bool:
-            if not text or len(text.strip()) < 150:
-                return False
-            lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
-            if not lines:
-                return False
-            last = lines[-1]
-            # MUST have hashtags line with 8-20 hashtags
-            tags = [w for w in last.split() if w.startswith('#')]
-            if 8 <= len(tags) <= 20:
-                return True
-            # If no hashtags, it's incomplete
-            return False
 
         def _attempt_finish(current_text: str, tries: int = 2) -> str:
+            if not groq_client:
+                logger.warning("No Groq client available — cannot attempt to finish truncated post")
+                return current_text
             for attempt in range(tries):
                 try:
                     # Check if we just need hashtags or a full continuation
@@ -1061,7 +1064,7 @@ def generate_tweet_with_ai(context_data: Dict[str, Any], linkedin_post: Optional
         commits_text = context_data.get('commits', 0)
         total_text = context_data.get('total_commits') or 'many'
         # Never say "0 commits" — phrase it naturally
-        if commits_text and int(commits_text) > 1:
+        if isinstance(commits_text, int) and commits_text > 1:
             topic_hint = f"Just pushed {commits_text} commits to '{safe_repo}'. The repo has {total_text} total commits."
         else:
             topic_hint = f"Just pushed new code to '{safe_repo}'. The repo has {total_text} total commits."
@@ -1249,6 +1252,7 @@ if __name__ == "__main__":
 
             if github_stats and (github_stats['public_repos'] % 5 == 0 or github_stats['followers'] % 10 == 0):
                 logger.info("Found a milestone! Generating post...")
+                github_stats['type'] = 'milestone'
                 posts_to_publish.append(github_stats)
             else:
                 # Priority 3: Use AI to generate generic dev content
@@ -1268,17 +1272,7 @@ if __name__ == "__main__":
             post_content = generate_post_with_ai(ctx)
             
             # Final fallback: if the model output seems truncated, append synthesized hashtags
-            def _looks_complete_local(text: str) -> bool:
-                if not text or len(text.strip()) < 150:
-                    return False
-                lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
-                if not lines:
-                    return False
-                last = lines[-1]
-                tags = [w for w in last.split() if w.startswith('#')]
-                return 8 <= len(tags) <= 20
-
-            if post_content and not _looks_complete_local(post_content):
+            if post_content and not _looks_complete(post_content):
                 logger.warning("Post missing proper hashtags line — applying fallback completion.")
                 if not post_content.strip().endswith(('.', '!', '?')):
                     post_content = post_content.rstrip()
