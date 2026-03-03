@@ -295,8 +295,7 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
     return (
         <canvas
             ref={canvasRef}
-            className={`fixed inset-0 pointer-events-none z-0 bg-transparent opacity-[0.055] ${className}`}
-            style={{ willChange: 'transform' }}
+            className={`fixed inset-0 pointer-events-none z-0 bg-transparent opacity-[0.055] [will-change:transform] ${className}`}
         />
     );
 }

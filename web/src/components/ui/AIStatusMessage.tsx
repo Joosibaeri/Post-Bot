@@ -194,10 +194,8 @@ function MessageBubble({
         transition-all duration-500 ease-out
         ${bgMap[message.type]} ${textMap[message.type]}
         ${isLatest ? 'opacity-100 translate-y-0' : 'opacity-60 scale-[0.97]'}
+        ai-status-slide-in
       `}
-      style={{
-        animation: 'slideInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
-      }}
     >
       <div className="flex-shrink-0 mt-0.5">
         <StatusIcon type={message.type} />
@@ -233,20 +231,6 @@ export function AIStatusMessage({
 
   return (
     <>
-      {/* Keyframes for slide-in animation */}
-      <style jsx global>{`
-        @keyframes slideInUp {
-          from {
-            opacity: 0;
-            transform: translateY(8px) scale(0.97);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-      `}</style>
-
       <div
         className="relative my-4 transition-all duration-300"
         role="status"

@@ -51,6 +51,7 @@ export default function PersonaQuiz({ onComplete, onSkip }: PersonaQuizProps) {
     });
 
     const totalSteps = 4;
+    const progressWidthClass = step === 1 ? 'w-1/4' : step === 2 ? 'w-1/2' : step === 3 ? 'w-3/4' : 'w-full';
 
     const savePersona = async () => {
         setSaving(true);
@@ -92,8 +93,7 @@ export default function PersonaQuiz({ onComplete, onSkip }: PersonaQuizProps) {
                 </div>
                 <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div
-                        className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300"
-                        style={{ width: `${(step / totalSteps) * 100}%` }}
+                        className={`h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300 ${progressWidthClass}`}
                     />
                 </div>
             </div>

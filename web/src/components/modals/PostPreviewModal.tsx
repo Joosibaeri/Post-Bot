@@ -127,8 +127,7 @@ export function PostPreviewModal({
         >
             <div
                 ref={modalRef}
-                className="bg-white dark:bg-[#1d2226] rounded-lg shadow-2xl max-w-[552px] w-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-                style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}
+                className="bg-white dark:bg-[#1d2226] rounded-lg shadow-2xl max-w-[552px] w-full max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200 font-sans"
             >
                 {/* Header - LinkedIn style */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -189,8 +188,7 @@ export function PostPreviewModal({
                             {/* Post content */}
                             <div className="px-4 py-3">
                                 <div
-                                    className="text-[14px] text-[#000000e6] dark:text-gray-200 whitespace-pre-wrap leading-[1.42857]"
-                                    style={{ wordBreak: 'break-word' }}
+                                    className="text-[14px] text-[#000000e6] dark:text-gray-200 whitespace-pre-wrap leading-[1.42857] break-words"
                                 >
                                     {formatContent(postContent)}
                                 </div>

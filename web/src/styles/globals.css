@@ -425,6 +425,59 @@
   }
 }
 
+@keyframes ai-status-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ai-status-slide-in {
+  animation: ai-status-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* LinkedIn preview char counter progress */
+.linkedin-char-progress {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+}
+
+.linkedin-char-progress::-webkit-progress-bar {
+  background-color: rgb(229 231 235);
+  border-radius: 9999px;
+}
+
+.dark .linkedin-char-progress::-webkit-progress-bar {
+  background-color: rgb(55 65 81);
+}
+
+.linkedin-char-progress::-webkit-progress-value,
+.linkedin-char-progress::-moz-progress-bar {
+  border-radius: 9999px;
+  transition: all 0.3s ease;
+}
+
+.linkedin-char-progress.is-normal::-webkit-progress-value,
+.linkedin-char-progress.is-normal::-moz-progress-bar {
+  background-color: #0a66c2;
+}
+
+.linkedin-char-progress.is-near-limit::-webkit-progress-value,
+.linkedin-char-progress.is-near-limit::-moz-progress-bar {
+  background-color: rgb(245 158 11);
+}
+
+.linkedin-char-progress.is-over-limit::-webkit-progress-value,
+.linkedin-char-progress.is-over-limit::-moz-progress-bar {
+  background-color: rgb(239 68 68);
+}
+
 /* Antigravity variant classes */
 .animate-float-up {
   animation: float-up 15s linear infinite;

@@ -89,6 +89,7 @@ const PostPreviewComponent: React.FC<PostPreviewProps> = ({
     const charCount = displayContent?.length || 0;
     const isNearLimit = charCount > 2700;
     const isOverLimit = charCount > 3000;
+    const progressValue = Math.min(charCount, 3000);
 
     return (
         <div className="bg-slate-50 dark:bg-white/5 rounded-2xl shadow-md border border-slate-200 dark:border-white/10 p-6">
@@ -174,8 +175,7 @@ const PostPreviewComponent: React.FC<PostPreviewProps> = ({
 
             {/* Post Preview Card */}
             <div
-                className={`bg-gray-50 dark:bg-[#1d2226] rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden ${isEditing ? 'h-[400px]' : 'max-h-[350px] overflow-y-auto'}`}
-                style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}
+                className={`bg-gray-50 dark:bg-[#1d2226] rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden font-sans ${isEditing ? 'h-[400px]' : 'max-h-[350px] overflow-y-auto'}`}
             >
                 {preview || isEditing ? (
                     <>
@@ -271,13 +271,16 @@ const PostPreviewComponent: React.FC<PostPreviewProps> = ({
                     </div>
 
                     {/* Progress bar */}
-                    <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div
-                            className={`h-full transition-all duration-300 ${isOverLimit ? 'bg-red-500' : isNearLimit ? 'bg-amber-500' : 'bg-[#0a66c2]'
-                                }`}
-                            style={{ width: `${Math.min(100, (charCount / 3000) * 100)}%` }}
-                        />
-                    </div>
+                    <progress
+                        className={`linkedin-char-progress w-full h-1.5 rounded-full overflow-hidden ${isOverLimit
+                            ? 'is-over-limit'
+                            : isNearLimit
+                                ? 'is-near-limit'
+                                : 'is-normal'
+                            }`}
+                        value={progressValue}
+                        max={3000}
+                    />
                 </div>
             )}
         </div>

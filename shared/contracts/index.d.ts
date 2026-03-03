@@ -65,7 +65,7 @@ export interface paths {
          *     Requested scopes: read:user, repo (for private repo access)
          *
          *     Args:
-         *         redirect_uri: Where to redirect after auth
+         *         redirect_uri: Where to redirect after auth (validated, not passed to GitHub)
          *         user_id: Clerk user ID (stored in state for callback)
          */
         get: operations["github_oauth_start_auth_github_start_get"];
@@ -214,6 +214,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/post/bot-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Bot Stats
+         * @description Get statistics for bot mode (generated vs published).
+         */
+        get: operations["get_bot_stats_api_post_bot_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/post/providers": {
         parameters: {
             query?: never;
@@ -257,6 +277,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/post/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Schedule
+         * @description Schedule a post for later publishing.
+         */
+        post: operations["schedule_api_post_schedule_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/webhooks/clerk": {
         parameters: {
             query?: never;
@@ -292,20 +332,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Settings
-         * @description Get user settings including persona.
-         *
-         *     Returns empty object if no settings exist yet.
-         */
+        /** Get Settings */
         get: operations["get_settings_api_settings__user_id__get"];
         put?: never;
-        /**
-         * Save Settings Path
-         * @description Save user settings with user_id from path.
-         *
-         *     Used by PersonaSettings component.
-         */
+        /** Save Settings Path */
         post: operations["save_settings_path_api_settings__user_id__post"];
         delete?: never;
         options?: never;
@@ -342,12 +372,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Usage
-         * @description Get usage stats for the daily limit bar.
-         *
-         *     Returns posts used today out of daily limit (10 for free, 50 for pro).
-         */
+        /** Get Usage */
         get: operations["get_usage_api_usage__user_id__get"];
         put?: never;
         post?: never;
@@ -364,12 +389,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Stats
-         * @description Get dashboard stats for a user.
-         *
-         *     Returns post counts, credits, and growth metrics.
-         */
+        /** Get Stats */
         get: operations["get_stats_api_stats__user_id__get"];
         put?: never;
         post?: never;
@@ -386,12 +406,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Connection Status
-         * @description Get connection status for LinkedIn and GitHub.
-         *
-         *     Returns which services are connected for this user.
-         */
+        /** Get Connection Status */
         get: operations["get_connection_status_api_connection_status__user_id__get"];
         put?: never;
         post?: never;
@@ -410,10 +425,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Create Post
-         * @description Create/save a new post record.
-         */
+        /** Create Post */
         post: operations["create_post_api_posts_post"];
         delete?: never;
         options?: never;
@@ -428,10 +440,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Scheduled Posts
-         * @description Get scheduled posts for a user.
-         */
+        /** Get Scheduled Posts */
         get: operations["get_scheduled_posts_api_scheduled_posts__user_id__get"];
         put?: never;
         post?: never;
@@ -488,10 +497,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Posts History
-         * @description Get post history for a user.
-         */
+        /** Get Posts History */
         get: operations["get_posts_history_api_posts__user_id__get"];
         put?: never;
         post?: never;
@@ -510,10 +516,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Schedule Post
-         * @description Schedule a post for later.
-         */
+        /** Schedule Post */
         post: operations["schedule_post_api_scheduled_post"];
         delete?: never;
         options?: never;
@@ -528,10 +531,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Scheduled
-         * @description Get scheduled posts for a user.
-         */
+        /** Get Scheduled */
         get: operations["get_scheduled_api_scheduled__user_id__get"];
         put?: never;
         post?: never;
@@ -551,10 +551,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Delete Scheduled
-         * @description Delete a scheduled post.
-         */
+        /** Delete Scheduled */
         delete: operations["delete_scheduled_api_scheduled__post_id__delete"];
         options?: never;
         head?: never;
@@ -570,10 +567,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Publish Full
-         * @description Publish a post with optional image to LinkedIn.
-         */
+        /** Publish Full */
         post: operations["publish_full_api_publish_full_post"];
         delete?: never;
         options?: never;
@@ -851,7 +845,7 @@ export interface paths {
         };
         /**
          * Health
-         * @description Health check endpoint.
+         * @description Health check endpoint with database connectivity verification.
          */
         get: operations["health_health_get"];
         put?: never;
@@ -1079,6 +1073,8 @@ export interface components {
              * @default false
              */
             test_mode: boolean | null;
+            /** Post Id */
+            post_id?: string | null;
         };
         /**
          * ScanRequest
@@ -1110,11 +1106,6 @@ export interface components {
             post_content: string;
             /** Scheduled Time */
             scheduled_time: number;
-            /**
-             * Timezone
-             * @default UTC
-             */
-            timezone: string | null;
             /** Image Url */
             image_url?: string | null;
         };
@@ -1137,6 +1128,22 @@ export interface components {
             persona?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** SettingsScheduleRequest */
+        SettingsScheduleRequest: {
+            /** User Id */
+            user_id: string;
+            /** Post Content */
+            post_content: string;
+            /** Scheduled Time */
+            scheduled_time: number;
+            /**
+             * Timezone
+             * @default UTC
+             */
+            timezone: string | null;
+            /** Image Url */
+            image_url?: string | null;
         };
         /**
          * SubscriptionStatusRequest
@@ -1476,6 +1483,37 @@ export interface operations {
             };
         };
     };
+    get_bot_stats_api_post_bot_stats_get: {
+        parameters: {
+            query: {
+                user_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_providers_api_post_providers_get: {
         parameters: {
             query?: never;
@@ -1506,6 +1544,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PostRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    schedule_api_post_schedule_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleRequest"];
             };
         };
         responses: {
@@ -1902,7 +1973,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ScheduleRequest"];
+                "application/json": components["schemas"]["SettingsScheduleRequest"];
             };
         };
         responses: {
