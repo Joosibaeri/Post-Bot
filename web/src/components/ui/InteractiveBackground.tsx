@@ -8,7 +8,6 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
-        // Capture ref value and assert non-null after check
         const canvas = canvasRef.current;
         if (!canvas) return;
 
@@ -19,18 +18,22 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
         let particles: Particle[] = [];
         let shapeCoordinates: { x: number; y: number; color?: string }[] = [];
         let mouse = { x: -1000, y: -1000, radius: 100 };
+        let isVisible = true; // Track tab/page visibility
 
-        // Configuration
-        const GAP = 3; // Reduced gap = more particles
+        // Configuration — scale particles by device capability
+        const GAP = 3;
+        const isMobile = window.innerWidth < 768;
+        const cpuCores = navigator.hardwareConcurrency || 4;
+        const MAX_PARTICLES = isMobile ? 600 : cpuCores <= 2 ? 800 : 1200;
         const MOUSE_RADIUS = 120;
         const FRICTION = 0.90;
-        const EASE = 0.02; // Slower movement
+        const EASE = 0.02;
 
         // Timing
         let lastStateChange = Date.now();
         let currentState: 'forming' | 'dispersing' = 'forming';
-        const HOLD_DURATION = 12000; // 12s hold
-        const DISPERSE_DURATION = 8000; // 8s disperse
+        const HOLD_DURATION = 12000;
+        const DISPERSE_DURATION = 8000;
 
         class Particle {
             x: number;
@@ -45,7 +48,6 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
             size: number;
 
             constructor(x: number, y: number, color: string) {
-                // Use window to avoid closure null issues with canvas ref
                 this.x = Math.random() * window.innerWidth;
                 this.y = Math.random() * window.innerHeight;
                 this.originX = Math.random() * window.innerWidth;
@@ -55,7 +57,7 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
                 this.vx = 0;
                 this.vy = 0;
                 this.color = color;
-                this.size = 1.6; // Reduced particle size
+                this.size = 1.6;
             }
 
             draw(context: CanvasRenderingContext2D) {
@@ -66,33 +68,27 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
             }
 
             update(width: number, height: number) {
-                // Determine target based on state
                 if (currentState === 'forming' && this.targetX !== -1) {
                     // targetX/Y set during shape assignment
                 } else {
-                    // Chaos state
                     this.targetX = this.originX;
                     this.targetY = this.originY;
 
-                    // Slowly drift
                     this.originX += (Math.random() - 0.5) * 0.5;
                     this.originY += (Math.random() - 0.5) * 0.5;
 
-                    // Cleanup bounds
                     if (this.originX < 0) this.originX = width;
                     if (this.originX > width) this.originX = 0;
                     if (this.originY < 0) this.originY = height;
                     if (this.originY > height) this.originY = 0;
                 }
 
-                // Physics
                 const dx = this.targetX - this.x;
                 const dy = this.targetY - this.y;
 
                 this.vx += dx * EASE;
                 this.vy += dy * EASE;
 
-                // Mouse Repulsion
                 const dxMouse = mouse.x - this.x;
                 const dyMouse = mouse.y - this.y;
                 const distMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
@@ -100,7 +96,7 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
                 if (distMouse < MOUSE_RADIUS) {
                     const angle = Math.atan2(dyMouse, dxMouse);
                     const force = (MOUSE_RADIUS - distMouse) / MOUSE_RADIUS;
-                    const push = force * 6; // Keep reaction fast/responsive
+                    const push = force * 6;
 
                     this.vx -= Math.cos(angle) * push;
                     this.vy -= Math.sin(angle) * push;
@@ -125,16 +121,13 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
 
-            // DRAW SHAPE
-            const iconSize = 180; // Increased size
+            const iconSize = 180;
             const iconX = centerX - iconSize / 2;
-            const iconY = centerY - 140; // Adjusted Y
+            const iconY = centerY - 140;
 
-            // Icon Background
             tCtx.fillStyle = '#6366f1';
             roundRect(tCtx, iconX, iconY, iconSize, iconSize * 0.9, 45, true);
 
-            // Eyes
             tCtx.fillStyle = '#ffffff';
             const eyeWidth = 18;
             const eyeHeight = 30;
@@ -143,7 +136,6 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
             roundRect(tCtx, iconX + eyeOffset, eyeY, eyeWidth, eyeHeight, 8, true);
             roundRect(tCtx, iconX + iconSize - eyeOffset - eyeWidth, eyeY, eyeWidth, eyeHeight, 8, true);
 
-            // Antennae
             tCtx.strokeStyle = '#ef4444';
             tCtx.lineWidth = 10;
             tCtx.lineCap = 'round';
@@ -153,13 +145,11 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
             tCtx.beginPath(); tCtx.arc(iconX - 15, iconY - 30, 9, 0, Math.PI * 2); tCtx.fill();
             tCtx.beginPath(); tCtx.arc(iconX + iconSize + 15, iconY - 30, 9, 0, Math.PI * 2); tCtx.fill();
 
-            // Text
             tCtx.fillStyle = '#ffffff';
-            tCtx.font = 'bold 90px Inter, sans-serif'; // Larger text
+            tCtx.font = 'bold 90px Inter, sans-serif';
             tCtx.textAlign = 'center';
             tCtx.fillText('PostBot', centerX, iconY + iconSize + 100);
 
-            // SCAN
             const imageData = tCtx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
 
@@ -183,7 +173,10 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
 
             scanShape();
 
-            const particleCount = Math.max(shapeCoordinates.length, 1200);
+            const particleCount = Math.min(
+                Math.max(shapeCoordinates.length, MAX_PARTICLES),
+                MAX_PARTICLES
+            );
 
             particles = [];
             for (let i = 0; i < particleCount; i++) {
@@ -200,7 +193,6 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
                 if (timeInState > HOLD_DURATION) {
                     currentState = 'dispersing';
                     lastStateChange = now;
-                    // Reset targets
                     particles.forEach(p => {
                         p.targetX = p.originX;
                         p.targetY = p.originY;
@@ -228,18 +220,22 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
         };
 
         const animate = () => {
-            if (!ctx) return;
+            if (!ctx || !isVisible) {
+                // When hidden, keep requesting frames but skip rendering
+                animationFrameId = requestAnimationFrame(animate);
+                return;
+            }
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             updateState();
 
-            // Pass dimensions explicitly to update loop to avoid closure capture issues
             const w = canvas.width;
             const h = canvas.height;
 
             for (let i = 0; i < particles.length; i++) {
-                particles[i].update(w, h); // Pass w, h
-                particles[i].draw(ctx); // Pass context
+                particles[i].update(w, h);
+                particles[i].draw(ctx);
             }
 
             animationFrameId = requestAnimationFrame(animate);
@@ -258,25 +254,41 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
             if (fill) ctx.fill();
         }
 
+        // Throttled mouse handler — fire at most every 16ms (~60fps)
+        let lastMouseTime = 0;
         const handleMouseMove = (e: MouseEvent) => {
+            const now = performance.now();
+            if (now - lastMouseTime < 16) return;
+            lastMouseTime = now;
             mouse.x = e.clientX;
             mouse.y = e.clientY;
         };
 
+        // Pause rendering when tab is hidden
+        const handleVisibilityChange = () => {
+            isVisible = !document.hidden;
+        };
+
+        // Debounced resize handler
+        let resizeTimer: ReturnType<typeof setTimeout>;
         const handleResize = () => {
-            init();
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => init(), 200);
         };
 
         init();
         animate();
 
         window.addEventListener('resize', handleResize);
-        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mousemove', handleMouseMove, { passive: true });
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
             window.removeEventListener('resize', handleResize);
             window.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             cancelAnimationFrame(animationFrameId);
+            clearTimeout(resizeTimer);
         };
     }, []);
 
@@ -284,6 +296,7 @@ export default function InteractiveBackground({ className = '' }: InteractiveBac
         <canvas
             ref={canvasRef}
             className={`fixed inset-0 pointer-events-none z-0 bg-transparent opacity-[0.055] ${className}`}
+            style={{ willChange: 'transform' }}
         />
     );
 }

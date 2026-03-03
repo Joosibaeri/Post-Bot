@@ -58,7 +58,10 @@ export default function App({ Component, pageProps }: AppProps) {
                 <AnimatedBackground intensity="subtle" variant="interactive" fixed={true} />
               )}
               <SkipToContent />
-              <Component {...pageProps} />
+              {/* Page transition: fade-in on route change */}
+              <div key={router.pathname} className="page-transition">
+                <Component {...pageProps} />
+              </div>
               <Toaster />
             </div>
           </ErrorBoundary>
@@ -67,4 +70,3 @@ export default function App({ Component, pageProps }: AppProps) {
     </ClerkProvider>
   )
 }
-

@@ -39,8 +39,8 @@
   }
 
   /* Reduce motion for users who prefer it */
+  /*
   @media (prefers-reduced-motion: reduce) {
-
     *,
     *::before,
     *::after {
@@ -49,6 +49,7 @@
       transition-duration: 0.01ms !important;
     }
   }
+  */
 }
 
 @layer utilities {
@@ -182,6 +183,11 @@
   .sr-only-focusable:focus {
     @apply static w-auto h-auto p-2 m-0 overflow-visible whitespace-normal;
     clip: auto;
+  }
+
+  /* Page transition animation */
+  .page-transition {
+    animation: pageEnter 0.3s ease-out forwards;
   }
 
   /* Glass card utility that adapts to theme */
@@ -338,6 +344,18 @@
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

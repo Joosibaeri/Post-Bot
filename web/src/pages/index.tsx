@@ -945,9 +945,7 @@ export default function Home() {
           {/* Bottom Bar */}
           <div className="pt-8 border-t border-gray-200 dark:border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">P</span>
-              </div>
+              <img src="/favicon.ico" alt="PostBot Logo" className="w-8 h-8 rounded-lg" />
               <span className="font-bold text-gray-900 dark:text-white">PostBot</span>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -957,36 +955,6 @@ export default function Home() {
         </div>
       </footer>
 
-      <style jsx global>{`
-        .perspective-1000 {
-          perspective: 1000px;
-        }
-        .rotate-x-6 {
-          transform: rotateX(6deg);
-        }
-        .rotate-x-0 {
-          transform: rotateX(0deg);
-        }
-        @keyframes float-slow {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
-        }
-        .animate-float-slow {
-          animation: float-slow 6s ease-in-out infinite;
-        }
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in-up {
-          animation: fadeInUp 0.8s ease-out forwards;
-          opacity: 0;
-        }
-        .animation-delay-100 { animation-delay: 0.1s; }
-        .animation-delay-200 { animation-delay: 0.2s; }
-        .animation-delay-300 { animation-delay: 0.3s; }
-        .animation-delay-400 { animation-delay: 0.4s; }
-      `}</style>
     </div>
   );
 }
