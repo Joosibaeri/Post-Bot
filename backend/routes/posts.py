@@ -116,10 +116,13 @@ class GenerateRequest(BaseModel):
 
 
 class PostRequest(BaseModel):
-    context: dict
+    context: Optional[dict] = None
     test_mode: Optional[bool] = True
     user_id: Optional[str] = None
     model: Optional[str] = "groq"
+    post_content: Optional[str] = None
+    image_url: Optional[str] = None
+    post_id: Optional[str] = None
 
 
 class ScheduleRequest(BaseModel):
@@ -475,10 +478,11 @@ async def publish(
     req: PostRequest,
     current_user: dict = Depends(get_current_user) if get_current_user else None
 ):
-    """Publish a post to LinkedIn."""
-    if not generate_post_with_ai:
-        raise HTTPException(status_code=503, detail="AI service not available")
+    """Publish a post to LinkedIn.
 
+    Accepts either pre-generated post_content (bot mode) or a context dict
+    to generate from (manual mode).
+    """
     # Use authenticated user_id if available
     user_id = None
     if current_user and current_user.get("user_id"):
@@ -486,31 +490,40 @@ async def publish(
     elif req.user_id:
         user_id = req.user_id
 
-    # Get user's Groq API key if user_id provided
-    groq_api_key = None
-    user_settings = None
-    if user_id and get_user_settings:
-        try:
-            user_settings = await get_user_settings(user_id)
-            if user_settings:
-                groq_api_key = user_settings.get('groq_api_key')
-        except Exception as e:
-            logger.warning("failed_to_get_user_settings", error=str(e))
-    
-    # Get user's persona context
-    persona_context = None
-    if user_id and build_full_persona_context:
-        try:
-            persona_context = await build_full_persona_context(user_id)
-        except Exception as e:
-            logger.warning("failed_to_get_persona", error=str(e))
+    # If post_content was provided directly (bot mode), use it as-is
+    post = req.post_content
 
-    post = generate_post_with_ai(req.context, groq_api_key=groq_api_key, persona_context=persona_context)
+    # Otherwise generate from context (manual mode)
+    if not post and req.context:
+        if not generate_post_with_ai:
+            raise HTTPException(status_code=503, detail="AI service not available")
+
+        # Get user's Groq API key if user_id provided
+        groq_api_key = None
+        user_settings = None
+        if user_id and get_user_settings:
+            try:
+                user_settings = await get_user_settings(user_id)
+                if user_settings:
+                    groq_api_key = user_settings.get('groq_api_key')
+            except Exception as e:
+                logger.warning("failed_to_get_user_settings", error=str(e))
+
+        # Get user's persona context
+        persona_context = None
+        if user_id and build_full_persona_context:
+            try:
+                persona_context = await build_full_persona_context(user_id)
+            except Exception as e:
+                logger.warning("failed_to_get_persona", error=str(e))
+
+        post = generate_post_with_ai(req.context, groq_api_key=groq_api_key, persona_context=persona_context)
+
     if not post:
-        return {"error": "failed_to_generate_post"}
+        return {"error": "failed_to_generate_post", "success": False}
 
     if req.test_mode:
-        return {"status": "preview", "post": post}
+        return {"success": True, "test_mode": True, "message": "Test publish successful (no real post created)", "post": post}
 
     # Actual publishing logic - ONLY use user's own token
     image_data = None
@@ -526,13 +539,68 @@ async def publish(
         
         linkedin_urn = user_token.get('linkedin_user_urn')
         token = user_token.get('access_token')
+
+        # Check if token has expired and attempt refresh
+        import time as _time
+        expires_at = user_token.get('expires_at')
+        if expires_at and int(expires_at) < int(_time.time()):
+            logger.warning("token_expired_attempting_refresh", user_id=user_id)
+            refresh_token = user_token.get('refresh_token')
+            if refresh_token:
+                try:
+                    from services.auth_service import refresh_access_token
+                    from services.token_store import save_token
+                    refreshed = refresh_access_token(refresh_token, user_id=user_id)
+                    token = refreshed.access_token
+                    # Persist refreshed token
+                    await save_token(
+                        linkedin_urn, refreshed.access_token,
+                        refreshed.refresh_token, refreshed.expires_at,
+                        user_id=user_id
+                    )
+                    logger.info("token_refreshed_before_publish", user_id=user_id)
+                except Exception as refresh_err:
+                    logger.error("token_refresh_failed_before_publish", error=str(refresh_err))
+                    raise HTTPException(
+                        status_code=401,
+                        detail="LinkedIn session expired and could not be refreshed. Please reconnect your account in Settings."
+                    )
+            else:
+                raise HTTPException(
+                    status_code=401,
+                    detail="LinkedIn session expired. Please reconnect your account in Settings."
+                )
         
         if get_relevant_image and token:
             image_data = get_relevant_image(post)
         if image_data and upload_image_to_linkedin and token:
             image_asset = upload_image_to_linkedin(image_data, access_token=token, linkedin_user_urn=linkedin_urn)
-        if post_to_linkedin and token:
-            post_to_linkedin(post, image_asset, access_token=token, linkedin_user_urn=linkedin_urn)
+
+        # Try async linkedin_api first, fall back to sync linkedin_service
+        publish_success = False
+        try:
+            from services.linkedin_api import post_to_linkedin as async_post
+            result = await async_post(
+                user_urn=linkedin_urn,
+                access_token=token,
+                post_content=post,
+                image_url=None,
+            )
+            publish_success = True
+        except ImportError:
+            # Fallback to sync service
+            if post_to_linkedin and token:
+                publish_success = post_to_linkedin(post, image_asset, access_token=token, linkedin_user_urn=linkedin_urn)
+        except PermissionError as perm_err:
+            raise HTTPException(status_code=401, detail=str(perm_err))
+        except RuntimeError as rt_err:
+            raise HTTPException(status_code=502, detail=str(rt_err))
+
+        if not publish_success:
+            raise HTTPException(
+                status_code=502,
+                detail="LinkedIn rejected the post. Your token may be expired — try reconnecting your account in Settings."
+            )
         
         # Refresh learned patterns after successful publish (fire-and-forget)
         if user_id:

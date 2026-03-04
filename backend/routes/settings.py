@@ -195,7 +195,7 @@ async def get_usage(user_id: str, timezone: str = "UTC", current_user: dict = De
         midnight_ts = int(midnight.timestamp())
         
         posts_today_result = await db.fetch_one(
-            "SELECT COUNT(*) as count FROM posts WHERE user_id = $1 AND created_at > $2",
+            "SELECT COUNT(*) as count FROM post_history WHERE user_id = $1 AND created_at > $2",
             [user_id, midnight_ts]
         )
         posts_today = posts_today_result['count'] if posts_today_result else 0
@@ -256,7 +256,7 @@ async def get_stats(user_id: str, current_user: dict = Depends(require_auth)):
         
         # Count posts by status
         counts_result = await db.fetch_all(
-            "SELECT status, COUNT(*) as count FROM posts WHERE user_id = $1 GROUP BY status",
+            "SELECT status, COUNT(*) as count FROM post_history WHERE user_id = $1 GROUP BY status",
             [user_id]
         )
         
@@ -281,26 +281,26 @@ async def get_stats(user_id: str, current_user: dict = Depends(require_auth)):
         
         # Monthly published count (for correct "this month" label)
         monthly_published_result = await db.fetch_one(
-            "SELECT COUNT(*) as count FROM posts WHERE user_id = $1 AND status = 'published' AND created_at > $2",
+            "SELECT COUNT(*) as count FROM post_history WHERE user_id = $1 AND status = 'published' AND created_at > $2",
             [user_id, month_ago]
         )
         published_this_month = monthly_published_result['count'] if monthly_published_result else 0
 
         monthly_result = await db.fetch_one(
-            "SELECT COUNT(*) as count FROM posts WHERE user_id = $1 AND created_at > $2",
+            "SELECT COUNT(*) as count FROM post_history WHERE user_id = $1 AND created_at > $2",
             [user_id, month_ago]
         )
         posts_this_month = monthly_result['count'] if monthly_result else 0
         
         # Weekly growth calculation
         weekly_result = await db.fetch_one(
-            "SELECT COUNT(*) as count FROM posts WHERE user_id = $1 AND created_at > $2",
+            "SELECT COUNT(*) as count FROM post_history WHERE user_id = $1 AND created_at > $2",
             [user_id, week_ago]
         )
         posts_this_week = weekly_result['count'] if weekly_result else 0
 
         last_week_result = await db.fetch_one(
-            "SELECT COUNT(*) as count FROM posts WHERE user_id = $1 AND created_at BETWEEN $2 AND $3",
+            "SELECT COUNT(*) as count FROM post_history WHERE user_id = $1 AND created_at BETWEEN $2 AND $3",
             [user_id, two_weeks_ago, week_ago]
         )
         posts_last_week = last_week_result['count'] if last_week_result else 0
@@ -487,7 +487,7 @@ async def create_post(req: PostCreateRequest, current_user: dict = Depends(requi
         now = int(time.time())
         
         await db.execute("""
-            INSERT INTO posts (user_id, post_content, post_type, status, created_at)
+            INSERT INTO post_history (user_id, post_content, post_type, status, created_at)
             VALUES ($1, $2, $3, $4, $5)
         """, [req.user_id, req.post_content, req.post_type, req.status, now])
         
@@ -589,20 +589,22 @@ async def get_image_preview(req: ImagePreviewRequest):
         logger.info(f"Unsplash key present: {bool(unsplash_key)}, query: {search_query}")
         
         if unsplash_key:
-            response = requests.get(
-                "https://api.unsplash.com/search/photos",
-                params={"query": search_query, "per_page": per_page},
-                headers={"Authorization": f"Client-ID {unsplash_key}"},
-                timeout=10
-            )
-            
-            logger.info(f"Unsplash response status: {response.status_code}")
-            
-            if response.ok:
-                data = response.json()
-                images = []
+            def _fetch_unsplash(query: str, count: int) -> list:
+                """Fetch images from Unsplash for a given query."""
+                resp = requests.get(
+                    "https://api.unsplash.com/search/photos",
+                    params={"query": query, "per_page": count},
+                    headers={"Authorization": f"Client-ID {unsplash_key}"},
+                    timeout=10
+                )
+                logger.info(f"Unsplash response: status={resp.status_code}, query='{query}'")
+                if not resp.ok:
+                    logger.error(f"Unsplash API error: {resp.status_code} - {resp.text}")
+                    return []
+                data = resp.json()
+                imgs = []
                 for photo in data.get("results", []):
-                    images.append({
+                    imgs.append({
                         "id": photo["id"],
                         "url": photo["urls"]["regular"],
                         "thumb": photo["urls"]["thumb"],
@@ -610,11 +612,25 @@ async def get_image_preview(req: ImagePreviewRequest):
                         "photographer": photo["user"]["name"],
                         "download_url": photo["urls"]["full"]
                     })
-                logger.info(f"Found {len(images)} images for query: {req.query}")
+                return imgs
+
+            # Try with extracted keywords first
+            images = _fetch_unsplash(search_query, per_page)
+
+            # Fallback: if no results, try broader tech-related query
+            if not images:
+                fallback_queries = ['software developer coding', 'technology workspace', 'programming laptop']
+                for fallback_q in fallback_queries:
+                    logger.info(f"No results for '{search_query}', trying fallback: '{fallback_q}'")
+                    images = _fetch_unsplash(fallback_q, per_page)
+                    if images:
+                        break
+
+            if images:
+                logger.info(f"Returning {len(images)} images for query: '{search_query}'")
                 return {"images": images}
             else:
-                logger.error(f"Unsplash API error: {response.status_code} - {response.text}")
-                return {"images": [], "error": f"Unsplash API error: {response.status_code}"}
+                return {"images": [], "error": "No images found. Unsplash may be rate-limited (50 req/hr for demo apps)."}
         
         # Fallback: return empty (no API key)
         logger.warning("UNSPLASH_ACCESS_KEY not found in environment")
@@ -652,13 +668,26 @@ async def get_posts_history(user_id: str, limit: int = 10, current_user: dict = 
         db = get_database()
         
         rows = await db.fetch_all(
-            """SELECT id, post_content, post_type, status, created_at 
-               FROM posts WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2""",
+            """SELECT id, post_content, post_type, context, status, linkedin_post_id, engagement, created_at, published_at
+               FROM post_history WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2""",
             [user_id, limit]
         )
         
-        return [{"id": row['id'], "content": row['post_content'], "type": row.get('post_type', 'push'),
-                 "status": row['status'], "created_at": row['created_at']} for row in rows]
+        import json as _json
+        posts = []
+        for row in rows:
+            posts.append({
+                "id": row['id'],
+                "post_content": row['post_content'],
+                "post_type": row.get('post_type', 'push'),
+                "context": _json.loads(row['context']) if row.get('context') else {},
+                "status": row['status'],
+                "linkedin_post_id": row.get('linkedin_post_id'),
+                "engagement": _json.loads(row['engagement']) if row.get('engagement') else {},
+                "created_at": row['created_at'],
+                "published_at": row.get('published_at'),
+            })
+        return {"posts": posts}
     except Exception as e:
         logger.error(f"Error getting posts history: {e}")
         return []
@@ -781,13 +810,21 @@ async def publish_full(req: PublishFullRequest, current_user: dict = Depends(req
             linkedin_post_id = result.get("id")
             
             # Persist status change
+            saved = False
             if req.post_id:
                 try:
-                    await repo.update_status(int(req.post_id), 'published', linkedin_post_id)
+                    # post_id may be a numeric DB ID or a generated string like "gen_0_..."
+                    db_id = int(req.post_id)
+                    await repo.update_status(db_id, 'published', linkedin_post_id)
+                    saved = True
+                except (ValueError, TypeError):
+                    # Non-numeric ID (e.g. "gen_0_abc") — can't update, will create new record
+                    logger.warning(f"Non-numeric post_id '{req.post_id}', creating new record")
                 except Exception as e:
                     logger.error(f"Failed to update post status: {e}")
-            else:
-                # Fallback: Create new published record if no ID provided
+            
+            if not saved:
+                # Create new published record
                 try:
                     await repo.save_post(
                         post_content=req.post_content,
