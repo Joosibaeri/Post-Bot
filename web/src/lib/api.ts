@@ -75,7 +75,7 @@ export async function generatePreview(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -107,19 +107,29 @@ export async function publishPost(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}/api/publish/full`, {
+  const response = await fetch(`${API_BASE}/api/post/publish`, {
     method: 'POST',
     headers,
     body: JSON.stringify(request),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to publish post: ${response.statusText}`);
+    // Parse the response body for a detailed error message from the backend
+    let detail = response.statusText;
+    try {
+      const errorData = await response.json();
+      if (errorData?.detail) {
+        detail = errorData.detail;
+      }
+    } catch {
+      // Response body wasn't JSON, use statusText
+    }
+    throw new Error(`Failed to publish post: ${detail}`);
   }
 
   return response.json();
@@ -139,7 +149,7 @@ export async function schedulePost(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -196,7 +206,7 @@ async function get(url: string, config?: RequestConfig): Promise<{ data: any }> 
   };
 
   let fullUrl = `${API_BASE}${url}`;
-  
+
   // Add query parameters if provided
   if (config?.params) {
     const params = new URLSearchParams();

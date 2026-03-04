@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { generatePreview, publishPost, schedulePost, api } from '@/lib/api';
 import { useRouter } from 'next/router';
 import { useUser, useAuth, UserButton } from '@clerk/nextjs';
@@ -130,25 +130,24 @@ export default function Dashboard() {
   const [scheduledPosts, setScheduledPosts] = useState<Array<{ id: number, post_content: string, image_url?: string, scheduled_time: number, status: string, error_message?: string, created_at: number, published_at?: number }>>([]);
 
   // Load scheduled posts when history modal opens
-  const loadScheduledPosts = async (uid: string) => {
+  const loadScheduledPosts = useCallback(async (uid: string) => {
     try {
       const token = await getToken();
       const response = await api.get(`/api/scheduled-posts/${uid}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setScheduledPosts(response.data.posts || []);
-      showToast.success(`Debug: Fetched ${(response.data.posts || []).length} scheduled posts`);
     } catch (error) {
       console.error('Failed to load scheduled posts:', error);
     }
-  };
+  }, [getToken]);
 
   // Trigger scheduled posts load when history modal opens
   useEffect(() => {
     if (showHistory && userId) {
       loadScheduledPosts(userId);
     }
-  }, [showHistory, userId]);
+  }, [showHistory, userId, loadScheduledPosts]);
 
   // DEV TEST MODE: Skip auth and load directly
   useEffect(() => {
@@ -167,20 +166,11 @@ export default function Dashboard() {
     }
   }, [router.isReady, isTestMode, isLoaded, isSignedIn]);
 
-  useEffect(() => {
-    if (isTestMode || !router.isReady) return; // Skip in test mode or if router not ready
-    if (!isLoaded || !userId) return;
-
-    // Check authentication status
-    checkAuthentication(userId);
-  }, [isLoaded, userId, isTestMode, router.isReady]);
-
-
-  const checkAuthentication = async (uid: string) => {
+  const checkAuthentication = useCallback(async (uid: string) => {
     try {
       // Always verify with backend first — localStorage is only a cache hint
       const token = await getToken();
-      const response = await api.post('/api/auth/refresh', { user_id: uid }, {
+      const response = await api.post('/auth/refresh', { user_id: uid }, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -208,7 +198,15 @@ export default function Dashboard() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [getToken, router]);
+
+  useEffect(() => {
+    if (isTestMode || !router.isReady) return; // Skip in test mode or if router not ready
+    if (!isLoaded || !userId) return;
+
+    // Check authentication status
+    checkAuthentication(userId);
+  }, [isLoaded, userId, isTestMode, router.isReady, checkAuthentication]);
 
   const handleGeneratePreview = async (model: 'groq' | 'openai' | 'anthropic' = 'groq') => {
     setLoading(true);
@@ -360,10 +358,7 @@ export default function Dashboard() {
   const handleManualEdit = (newContent?: string) => {
     if (newContent) {
       setPreview(newContent);
-      // Note: We don't auto-save to DB here to avoid spamming drafts, 
-      // but the user can click "Test Mode" or "Publish" to save.
-      // Optionally, we could save as draft here. Let's do it for better UX.
-      savePost(newContent, 'draft');
+      // Don't auto-save on every keystroke — user saves explicitly via Publish/Test
     }
   };
 
@@ -552,6 +547,7 @@ export default function Dashboard() {
             postsRemaining={usage?.posts_remaining ?? 10}
             tier={usage?.tier ?? 'free'}
             isLimitReached={isLimitReached ?? false}
+            onPublishSuccess={refetchAll}
           />
         </div>
 
@@ -762,6 +758,7 @@ export default function Dashboard() {
           setFeedbackAutoTriggered(false);
         }}
         userId={userId}
+        getToken={getToken}
         autoTriggered={feedbackAutoTriggered}
         autoDismissSeconds={35}
       />
