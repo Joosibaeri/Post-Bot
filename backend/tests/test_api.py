@@ -166,12 +166,12 @@ class TestGitHubScanEndpoint:
 
 
 class TestPublishEndpoint:
-    """Tests for the /api/publish/full endpoint."""
+    """Tests for the /api/post/publish endpoint."""
     
     def test_publish_test_mode_returns_success(self, sync_test_client: TestClient):
         """Publish in test mode should return success without posting."""
         response = sync_test_client.post(
-            "/api/publish/full",
+            "/api/post/publish",
             json={
                 "user_id": "test_user_dev",
                 "post_content": "This is a test post for LinkedIn!",
@@ -189,7 +189,7 @@ class TestPublishEndpoint:
     def test_publish_validates_content(self, sync_test_client: TestClient):
         """Publish should accept post_content."""
         response = sync_test_client.post(
-            "/api/publish/full",
+            "/api/post/publish",
             json={
                 "user_id": "test_user_dev",
                 "post_content": "Test content",

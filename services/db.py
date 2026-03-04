@@ -116,19 +116,28 @@ class DatabaseWrapper:
     async def disconnect(self):
         return await self._db.disconnect()
     
-    async def execute(self, query: str, values: list = None):
-        if self._is_sqlite and values:
+    def _prepare(self, query: str, values):
+        """Convert $1-style positional params to :p1-style named params.
+        
+        The `databases` library uses SQLAlchemy text() bindings internally,
+        which require :param style for BOTH SQLite and PostgreSQL backends.
+        Raw $1 placeholders only work with direct asyncpg, not through
+        the `databases` abstraction layer.
+        """
+        if values and isinstance(values, (list, tuple)):
             query, values = _convert_query_for_sqlite(query, values)
+        return query, values
+
+    async def execute(self, query: str, values=None):
+        query, values = self._prepare(query, values)
         return await self._db.execute(query=query, values=values)
     
-    async def fetch_one(self, query: str, values: list = None):
-        if self._is_sqlite and values:
-            query, values = _convert_query_for_sqlite(query, values)
+    async def fetch_one(self, query: str, values=None):
+        query, values = self._prepare(query, values)
         return await self._db.fetch_one(query=query, values=values)
     
-    async def fetch_all(self, query: str, values: list = None):
-        if self._is_sqlite and values:
-            query, values = _convert_query_for_sqlite(query, values)
+    async def fetch_all(self, query: str, values=None):
+        query, values = self._prepare(query, values)
         return await self._db.fetch_all(query=query, values=values)
 
 
@@ -331,7 +340,7 @@ async def init_tables():
     # =========================================================================
     await db.execute("""
         CREATE TABLE IF NOT EXISTS subscriptions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             user_id TEXT NOT NULL UNIQUE,
             stripe_customer_id TEXT UNIQUE,
             stripe_subscription_id TEXT UNIQUE,
