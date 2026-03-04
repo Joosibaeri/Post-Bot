@@ -57,6 +57,7 @@ interface BotModePanelProps {
     postsRemaining?: number;
     tier?: string;
     isLimitReached?: boolean;  // True when daily publish limit hit (10/10)
+    onPublishSuccess?: () => void;  // Callback to refresh dashboard data after publish
 }
 
 
@@ -88,7 +89,7 @@ const AI_MODELS = [
     { value: 'claude', label: 'Claude', icon: '🎭', freeAvailable: false }
 ];
 
-export function BotModePanel({ userId, userName, postsRemaining = 10, tier = 'free', isLimitReached = false }: BotModePanelProps) {
+export function BotModePanel({ userId, userName, postsRemaining = 10, tier = 'free', isLimitReached = false, onPublishSuccess }: BotModePanelProps) {
     const { getToken } = useAuth();
     const ai = useAIStatus();
     const name = userName || 'there';
@@ -269,20 +270,34 @@ export function BotModePanel({ userId, userName, postsRemaining = 10, tier = 'fr
     // Load images for a post
     const handleLoadImages = useCallback(async (postId: string) => {
         const post = posts.find(p => p.id === postId);
-        if (!post || !post.content) return;
+        if (!post || !post.content) {
+            showToast.error('No post content to search images for');
+            return;
+        }
 
         setSelectedPostForImage(postId);
         setLoadingImages(true);
+        setImages([]);
 
         try {
             const response = await api.post(`/api/image/preview`, {
                 post_content: post.content,
-                count: 3
+                count: 6
             });
 
-            setImages(response.data.images || []);
+            const fetchedImages = response.data.images || [];
+            setImages(fetchedImages);
+
+            // Show backend error/message if images are empty
+            if (fetchedImages.length === 0) {
+                const errorMsg = response.data.error || response.data.message;
+                if (errorMsg) {
+                    showToast.error(errorMsg);
+                }
+            }
         } catch (error) {
-            showToast.error('Failed to load images');
+            console.error('Image fetch error:', error);
+            showToast.error('Failed to load images — check that the backend is running');
             setImages([]);
         } finally {
             setLoadingImages(false);
@@ -297,6 +312,8 @@ export function BotModePanel({ userId, userName, postsRemaining = 10, tier = 'fr
                     ? { ...post, image_url: imageUrl }
                     : post
             ));
+            // Close the modal after selection (like manual mode)
+            setSelectedPostForImage(null);
         }
     }, [selectedPostForImage]);
 
@@ -352,6 +369,8 @@ export function BotModePanel({ userId, userName, postsRemaining = 10, tier = 'fr
                     ...prev,
                     published: prev.published + 1
                 }));
+                // Refresh dashboard data (stats, posts history, usage)
+                if (onPublishSuccess) onPublishSuccess();
             }
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { showToast } from '@/lib/toast';
 
 interface ScheduleModalProps {
     isOpen: boolean;
@@ -33,7 +34,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
             
             // Validate: cannot schedule in the past
             if (scheduledDate <= new Date()) {
-                console.error('Cannot schedule posts in the past');
+                showToast.error('Cannot schedule posts in the past. Please select a future date and time.');
                 setIsScheduling(false);
                 return;
             }
