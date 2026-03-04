@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useUser, useAuth } from '@clerk/nextjs';
 import { api } from '@/lib/api';
 import { showToast } from '@/lib/toast';
@@ -48,13 +48,7 @@ export default function PersonaSettings() {
     const [saving, setSaving] = useState(false);
     const [newTopic, setNewTopic] = useState('');
 
-    useEffect(() => {
-        if (user?.id) {
-            loadPersona();
-        }
-    }, [user?.id]);
-
-    const loadPersona = async () => {
+    const loadPersona = useCallback(async () => {
         try {
             const token = await getToken();
             const response = await api.get(`/api/settings/${user?.id}`, {
@@ -68,7 +62,13 @@ export default function PersonaSettings() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [getToken, user?.id]);
+
+    useEffect(() => {
+        if (user?.id) {
+            loadPersona();
+        }
+    }, [user?.id, loadPersona]);
 
     const savePersona = async () => {
         setSaving(true);
@@ -196,7 +196,7 @@ export default function PersonaSettings() {
                         type="text"
                         value={newTopic}
                         onChange={(e) => setNewTopic(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && addTopic(newTopic)}
+                        onKeyDown={(e) => e.key === 'Enter' && addTopic(newTopic)}
                         placeholder="Add topic..."
                         className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                        bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"

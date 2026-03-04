@@ -79,6 +79,7 @@ export default function Settings() {
 
     if (linkedinSuccess === 'true') {
       showToast.success('LinkedIn connected!');
+      localStorage.setItem('authentication_verified', 'true');
       setShouldRefresh(prev => !prev); // Toggle to trigger refresh
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (linkedinSuccess === 'false') {
