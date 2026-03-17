@@ -2,6 +2,7 @@
 Email Service for sending contact form emails
 """
 import os
+import html as html_module
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -46,9 +47,16 @@ class EmailService:
             dict: Success status and message
         """
         try:
+            # Sanitize user inputs for HTML context
+            safe_name = html_module.escape(from_name)
+            safe_email = html_module.escape(from_email)
+            safe_subject = html_module.escape(subject)
+            safe_message = html_module.escape(message)
+            safe_priority = html_module.escape(priority)
+            
             # Create message
             msg = MIMEMultipart('alternative')
-            msg['From'] = f"{from_name} <{self.from_email}>"
+            msg['From'] = f"{safe_name} <{self.from_email}>"
             msg['To'] = to_email
             msg['Subject'] = subject
             msg['Reply-To'] = from_email
@@ -100,35 +108,35 @@ Reply directly to this email to respond to {from_name}.
             <div class="field">
                 <div class="label">Priority Level</div>
                 <div class="value">
-                    <span class="priority priority-{priority.lower()}">{priority.upper()}</span>
+                    <span class="priority priority-{safe_priority.lower()}">{safe_priority.upper()}</span>
                 </div>
             </div>
             
             <div class="field">
                 <div class="label">From</div>
-                <div class="value">{from_name}</div>
+                <div class="value">{safe_name}</div>
             </div>
             
             <div class="field">
                 <div class="label">Email</div>
-                <div class="value"><a href="mailto:{from_email}">{from_email}</a></div>
+                <div class="value"><a href="mailto:{safe_email}">{safe_email}</a></div>
             </div>
             
             <div class="field">
                 <div class="label">Subject</div>
-                <div class="value">{subject}</div>
+                <div class="value">{safe_subject}</div>
             </div>
             
             <div class="field">
                 <div class="label">Message</div>
                 <div class="value" style="white-space: pre-wrap; background: white; padding: 15px; border-radius: 5px; border: 1px solid #e5e7eb;">
-{message}
+{safe_message}
                 </div>
             </div>
         </div>
         <div class="footer">
             This email was sent from the LinkedIn Post Bot contact form.<br>
-            Reply directly to this email to respond to {from_name}.
+            Reply directly to this email to respond to {safe_name}.
         </div>
     </div>
 </body>

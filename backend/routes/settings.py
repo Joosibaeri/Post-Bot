@@ -60,12 +60,11 @@ class SettingsRequest(BaseModel):
 # =============================================================================
 @router.get("/settings/{user_id}")
 async def get_settings(user_id: str, current_user: dict = Depends(require_auth)):
-    _verify_user_ownership(current_user, user_id)
-    """
-    Get user settings including persona.
+    """Get user settings including persona.
     
     Returns empty object if no settings exist yet.
     """
+    _verify_user_ownership(current_user, user_id)
     if not get_user_settings:
         raise HTTPException(status_code=503, detail="Settings service not available")
     
@@ -134,12 +133,11 @@ async def save_settings_body(req: SettingsRequest, current_user: dict = Depends(
 
 @router.post("/settings/{user_id}")
 async def save_settings_path(user_id: str, req: SettingsRequest, current_user: dict = Depends(require_auth)):
-    _verify_user_ownership(current_user, user_id)
-    """
-    Save user settings with user_id from path.
+    """Save user settings with user_id from path.
     
     Used by PersonaSettings component.
     """
+    _verify_user_ownership(current_user, user_id)
     if not save_user_settings:
         raise HTTPException(status_code=503, detail="Settings service not available")
     
@@ -165,12 +163,11 @@ async def save_settings_path(user_id: str, req: SettingsRequest, current_user: d
 # =============================================================================
 @router.get("/usage/{user_id}")
 async def get_usage(user_id: str, timezone: str = "UTC", current_user: dict = Depends(require_auth)):
-    _verify_user_ownership(current_user, user_id)
-    """
-    Get usage stats for the daily limit bar.
+    """Get usage stats for the daily limit bar.
     
     Returns posts used today out of daily limit (10 for free, 50 for pro).
     """
+    _verify_user_ownership(current_user, user_id)
     import time
     from datetime import datetime, timezone as tz, timedelta
     
@@ -243,12 +240,11 @@ async def get_usage(user_id: str, timezone: str = "UTC", current_user: dict = De
 # =============================================================================
 @router.get("/stats/{user_id}")
 async def get_stats(user_id: str, current_user: dict = Depends(require_auth)):
-    _verify_user_ownership(current_user, user_id)
-    """
-    Get dashboard stats for a user.
+    """Get dashboard stats for a user.
     
     Returns post counts, credits, and growth metrics.
     """
+    _verify_user_ownership(current_user, user_id)
     try:
         # Get post counts from database
         from services.db import get_database
@@ -351,12 +347,11 @@ async def get_stats(user_id: str, current_user: dict = Depends(require_auth)):
 # =============================================================================
 @router.get("/connection-status/{user_id}")
 async def get_connection_status(user_id: str, current_user: dict = Depends(require_auth)):
-    _verify_user_ownership(current_user, user_id)
-    """
-    Get connection status for LinkedIn and GitHub.
+    """Get connection status for LinkedIn and GitHub.
     
     Returns which services are connected for this user.
     """
+    _verify_user_ownership(current_user, user_id)
     status = {
         "linkedin_connected": False,
         "linkedin_urn": None,
@@ -474,35 +469,36 @@ class PostCreateRequest(BaseModel):
 
 @router.post("/posts")
 async def create_post(req: PostCreateRequest, current_user: dict = Depends(require_auth)):
+    """Create/save a new post record."""
     _verify_user_ownership(current_user, req.user_id)
-    """
-    Create/save a new post record.
-    """
     import time
+    import json as _json
     
     try:
         from services.db import get_database
         db = get_database()
         
         now = int(time.time())
+        context_json = _json.dumps(req.context) if req.context else None
         
-        await db.execute("""
-            INSERT INTO post_history (user_id, post_content, post_type, status, created_at)
-            VALUES ($1, $2, $3, $4, $5)
-        """, [req.user_id, req.post_content, req.post_type, req.status, now])
+        # Use RETURNING to get the created ID
+        row = await db.fetch_one("""
+            INSERT INTO post_history (user_id, post_content, post_type, context, status, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id
+        """, [req.user_id, req.post_content, req.post_type, context_json, req.status, now])
         
-        return {"success": True, "message": "Post saved"}
+        post_id = row['id'] if row else None
+        return {"success": True, "message": "Post saved", "id": post_id}
     except Exception as e:
         logger.error(f"Error saving post: {e}")
-        return {"success": False, "error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/scheduled-posts/{user_id}")
 async def get_scheduled_posts(user_id: str, current_user: dict = Depends(require_auth)):
+    """Get scheduled posts for a user."""
     _verify_user_ownership(current_user, user_id)
-    """
-    Get scheduled posts for a user.
-    """
     try:
         from services.db import get_database
         db = get_database()
@@ -661,8 +657,8 @@ async def get_templates():
 # =============================================================================
 @router.get("/posts/{user_id}")
 async def get_posts_history(user_id: str, limit: int = 10, current_user: dict = Depends(require_auth)):
-    _verify_user_ownership(current_user, user_id)
     """Get post history for a user."""
+    _verify_user_ownership(current_user, user_id)
     try:
         from services.db import get_database
         db = get_database()
@@ -690,7 +686,7 @@ async def get_posts_history(user_id: str, limit: int = 10, current_user: dict = 
         return {"posts": posts}
     except Exception as e:
         logger.error(f"Error getting posts history: {e}")
-        return []
+        return {"posts": []}
 
 
 # =============================================================================
@@ -706,8 +702,8 @@ class SettingsScheduleRequest(BaseModel):
 
 @router.post("/scheduled")
 async def schedule_post(req: SettingsScheduleRequest, current_user: dict = Depends(require_auth)):
-    _verify_user_ownership(current_user, req.user_id)
     """Schedule a post for later."""
+    _verify_user_ownership(current_user, req.user_id)
     import time
     try:
         from services.db import get_database
@@ -726,8 +722,8 @@ async def schedule_post(req: SettingsScheduleRequest, current_user: dict = Depen
 
 @router.get("/scheduled/{user_id}")
 async def get_scheduled(user_id: str, current_user: dict = Depends(require_auth)):
-    _verify_user_ownership(current_user, user_id)
     """Get scheduled posts for a user."""
+    _verify_user_ownership(current_user, user_id)
     try:
         from services.db import get_database
         db = get_database()
@@ -744,8 +740,8 @@ async def get_scheduled(user_id: str, current_user: dict = Depends(require_auth)
 
 @router.delete("/scheduled/{post_id}")
 async def delete_scheduled(post_id: int, user_id: str, current_user: dict = Depends(require_auth)):
-    _verify_user_ownership(current_user, user_id)
     """Delete a scheduled post."""
+    _verify_user_ownership(current_user, user_id)
     try:
         from services.db import get_database
         db = get_database()
@@ -769,8 +765,8 @@ class PublishFullRequest(BaseModel):
 
 @router.post("/publish/full")
 async def publish_full(req: PublishFullRequest, current_user: dict = Depends(require_auth)):
-    _verify_user_ownership(current_user, req.user_id)
     """Publish a post with optional image to LinkedIn."""
+    _verify_user_ownership(current_user, req.user_id)
     try:
         logger.info(f"Publish request: user_id={req.user_id}, test_mode={req.test_mode}")
         

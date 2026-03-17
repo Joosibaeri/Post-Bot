@@ -79,48 +79,64 @@ ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
 MISTRAL_MODEL = "mistral-large-latest"
 
 # =============================================================================
-# SINGLETON AI CLIENTS (lazily created once, reused across calls)
+# AI CLIENT CACHE (keyed by API key to support per-user credentials)
 # =============================================================================
-_groq_client = None
-_openai_client = None
-_anthropic_client = None
-_mistral_client = None
+_groq_clients: dict = {}
+_openai_clients: dict = {}
+_anthropic_clients: dict = {}
+_mistral_clients: dict = {}
+
+# Maximum cached clients per provider to prevent unbounded memory growth
+_MAX_CACHED_CLIENTS = 20
 
 
 def _get_groq_client(api_key: str = None):
-    """Get or create singleton Groq client."""
-    global _groq_client
+    """Get or create Groq client, keyed by API key."""
     key = api_key or GROQ_API_KEY
-    if _groq_client is None and key and GROQ_AVAILABLE:
-        _groq_client = Groq(api_key=key)
-    return _groq_client
+    if not key or not GROQ_AVAILABLE:
+        return None
+    if key not in _groq_clients:
+        if len(_groq_clients) >= _MAX_CACHED_CLIENTS:
+            _groq_clients.pop(next(iter(_groq_clients)), None)
+        _groq_clients[key] = Groq(api_key=key, timeout=30.0)
+    return _groq_clients[key]
 
 
 def _get_openai_client(api_key: str = None):
-    """Get or create singleton OpenAI client."""
-    global _openai_client
+    """Get or create OpenAI client, keyed by API key."""
     key = api_key or OPENAI_API_KEY
-    if _openai_client is None and key and OPENAI_AVAILABLE:
-        _openai_client = OpenAI(api_key=key)
-    return _openai_client
+    if not key or not OPENAI_AVAILABLE:
+        return None
+    if key not in _openai_clients:
+        if len(_openai_clients) >= _MAX_CACHED_CLIENTS:
+            _openai_clients.pop(next(iter(_openai_clients)), None)
+        _openai_clients[key] = OpenAI(api_key=key, timeout=30.0)
+    return _openai_clients[key]
 
 
 def _get_anthropic_client(api_key: str = None):
-    """Get or create singleton Anthropic client."""
-    global _anthropic_client
+    """Get or create Anthropic client, keyed by API key."""
     key = api_key or ANTHROPIC_API_KEY
-    if _anthropic_client is None and key and ANTHROPIC_AVAILABLE:
-        _anthropic_client = Anthropic(api_key=key)
-    return _anthropic_client
+    if not key or not ANTHROPIC_AVAILABLE:
+        return None
+    if key not in _anthropic_clients:
+        if len(_anthropic_clients) >= _MAX_CACHED_CLIENTS:
+            _anthropic_clients.pop(next(iter(_anthropic_clients)), None)
+        _anthropic_clients[key] = Anthropic(timeout=30.0)
+        # Anthropic client uses ANTHROPIC_API_KEY env var or needs manual setting
+    return _anthropic_clients[key]
 
 
 def _get_mistral_client(api_key: str = None):
-    """Get or create singleton Mistral client."""
-    global _mistral_client
+    """Get or create Mistral client, keyed by API key."""
     key = api_key or MISTRAL_API_KEY
-    if _mistral_client is None and key and MISTRAL_AVAILABLE:
-        _mistral_client = Mistral(api_key=key)
-    return _mistral_client
+    if not key or not MISTRAL_AVAILABLE:
+        return None
+    if key not in _mistral_clients:
+        if len(_mistral_clients) >= _MAX_CACHED_CLIENTS:
+            _mistral_clients.pop(next(iter(_mistral_clients)), None)
+        _mistral_clients[key] = Mistral(api_key=key)
+    return _mistral_clients[key]
 
 
 # =============================================================================
@@ -456,6 +472,55 @@ ACTIVITY_TONES = {
 
 
 # =============================================================================
+# PROMPT SANITISATION
+# =============================================================================
+
+_INJECTION_PATTERNS = [
+    "ignore previous instructions",
+    "ignore all previous",
+    "disregard above",
+    "disregard your instructions",
+    "forget your instructions",
+    "you are now",
+    "new instructions:",
+    "system prompt:",
+    "override:",
+    "admin mode",
+    "developer mode",
+    "jailbreak",
+    "do anything now",
+    "\n=== ",  # block section markers that mimic our prompt structure
+]
+
+
+def sanitize_prompt_input(text: str, max_length: int = 2000) -> str:
+    """
+    Sanitize user-provided text before embedding in AI prompts.
+
+    Defences:
+    1. Truncate to *max_length* to prevent context stuffing.
+    2. Strip prompt-injection trigger phrases.
+    3. Collapse excessive whitespace / newlines.
+    """
+    if not text:
+        return ""
+    # Truncate
+    text = text[:max_length]
+    # Strip known injection patterns (case-insensitive)
+    lower = text.lower()
+    for pattern in _INJECTION_PATTERNS:
+        idx = lower.find(pattern)
+        while idx != -1:
+            text = text[:idx] + text[idx + len(pattern):]
+            lower = text.lower()
+            idx = lower.find(pattern)
+    # Collapse excessive newlines (>2 consecutive) and leading/trailing whitespace
+    import re as _re
+    text = _re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
+# =============================================================================
 # PROMPT BUILDING HELPERS
 # =============================================================================
 
@@ -629,8 +694,8 @@ def build_user_prompt(context_data: dict) -> str:
     
     if activity_type == 'push':
         commits = context_data.get('commits', 0)
-        repo = context_data.get('repo', 'unknown-repo')
-        description = context_data.get('description', '')
+        repo = sanitize_prompt_input(context_data.get('repo', 'unknown-repo'), max_length=200)
+        description = sanitize_prompt_input(context_data.get('description', ''), max_length=500)
         
         vibe = random.choice(push_vibes)
         angle = random.choice(push_angles)
@@ -662,9 +727,9 @@ BE UNIQUE. Don't use generic phrases. Make it authentically yours.
 """
         
     elif activity_type == 'pull_request':
-        title = context_data.get('title', 'Unknown PR')
-        repo = context_data.get('repo', 'unknown-repo')
-        body = context_data.get('body', '')
+        title = sanitize_prompt_input(context_data.get('title', 'Unknown PR'), max_length=300)
+        repo = sanitize_prompt_input(context_data.get('repo', 'unknown-repo'), max_length=200)
+        body = sanitize_prompt_input(context_data.get('body', ''), max_length=500)
         merged = context_data.get('merged', False)
         
         state_str = "merged" if merged else "opened"
@@ -686,9 +751,9 @@ BE UNIQUE. Avoid clichés. Write from the heart.
 """
         
     elif activity_type == 'new_repo':
-        repo = context_data.get('repo', 'New Project')
-        description = context_data.get('description', '')
-        language = context_data.get('language', 'Code')
+        repo = sanitize_prompt_input(context_data.get('repo', 'New Project'), max_length=200)
+        description = sanitize_prompt_input(context_data.get('description', ''), max_length=500)
+        language = sanitize_prompt_input(context_data.get('language', 'Code'), max_length=100)
         
         vibe = random.choice(new_repo_vibes)
         angle = random.choice(new_repo_angles)
@@ -709,8 +774,8 @@ BE UNIQUE. This is YOUR story. Tell it your way.
         
     else:
         # Generic or manual context
-        topic = context_data.get('topic', 'Coding & Development')
-        details = context_data.get('details', 'Sharing thoughts on my developer journey.')
+        topic = sanitize_prompt_input(context_data.get('topic', 'Coding & Development'), max_length=300)
+        details = sanitize_prompt_input(context_data.get('details', 'Sharing thoughts on my developer journey.'), max_length=1000)
         
         return f"""
 Create a LinkedIn post about: {topic}
@@ -850,7 +915,10 @@ def _generate_with_anthropic(
         )
         
         # Anthropic returns content as a list of blocks
-        return response.content[0].text
+        if response.content:
+            return response.content[0].text
+        logger.warning("anthropic_empty_response", model=ANTHROPIC_MODEL)
+        return None
         
     except Exception as e:
         logger.error("anthropic_generation_failed", error=str(e))
@@ -1026,31 +1094,46 @@ async def generate_linkedin_post(
     system_prompt = build_system_prompt(style, activity_type, persona_context)
     user_prompt = build_user_prompt(context_data)
     
-    # Route to appropriate provider
+    # Route to appropriate provider (run sync SDK calls in thread pool to avoid blocking event loop)
     content = None
     model_used = ""
     
     # Get template-specific temperature for better tone matching
     temperature = TEMPLATE_TEMPERATURES.get(style, 0.8)
     
-    if actual_provider == ModelProvider.GROQ:
-        content = _generate_with_groq(system_prompt, user_prompt, groq_api_key, temperature)
-        model_used = GROQ_MODEL
+    import asyncio
+    
+    # Map providers to their generation functions, API keys, and model names
+    _provider_map = {
+        ModelProvider.GROQ: (_generate_with_groq, groq_api_key, GROQ_MODEL),
+        ModelProvider.MISTRAL: (_generate_with_mistral, mistral_api_key, MISTRAL_MODEL),
+        ModelProvider.OPENAI: (_generate_with_openai, openai_api_key, OPENAI_MODEL),
+        ModelProvider.ANTHROPIC: (_generate_with_anthropic, anthropic_api_key, ANTHROPIC_MODEL),
+    }
+    
+    # Build fallback chain: requested provider first, then others allowed by tier
+    allowed = TIER_ALLOWED_PROVIDERS.get(user_tier, [ModelProvider.GROQ])
+    fallback_chain = [actual_provider] + [p for p in allowed if p != actual_provider]
+    
+    for provider in fallback_chain:
+        gen_fn, api_key, model_name = _provider_map[provider]
+        try:
+            content = await asyncio.to_thread(gen_fn, system_prompt, user_prompt, api_key, temperature)
+        except Exception as e:
+            log.warning("provider_call_failed", provider=provider.value, error=str(e))
+            content = None
         
-    elif actual_provider == ModelProvider.MISTRAL:
-        content = _generate_with_mistral(system_prompt, user_prompt, mistral_api_key, temperature)
-        model_used = MISTRAL_MODEL
-        
-    elif actual_provider == ModelProvider.OPENAI:
-        content = _generate_with_openai(system_prompt, user_prompt, openai_api_key, temperature)
-        model_used = OPENAI_MODEL
-        
-    elif actual_provider == ModelProvider.ANTHROPIC:
-        content = _generate_with_anthropic(system_prompt, user_prompt, anthropic_api_key, temperature)
-        model_used = ANTHROPIC_MODEL
+        if content:
+            model_used = model_name
+            if provider != actual_provider:
+                log.info("fallback_provider_used", original=actual_provider.value, fallback=provider.value)
+                was_downgraded = True
+            break
+        else:
+            log.warning("provider_returned_empty", provider=provider.value)
     
     if not content:
-        log.error("generation_failed")
+        log.error("all_providers_failed", tried=[p.value for p in fallback_chain])
         return None
     
     log.info("generation_complete", content_length=len(content))
@@ -1078,6 +1161,11 @@ def generate_post_with_ai(
     
     This maintains the old API signature while using the new multi-model router.
     Always uses Groq (free tier behavior).
+    
+    Safe to call from:
+    - Synchronous code (no event loop running)
+    - Background threads while an async loop runs on the main thread
+    - Celery tasks
     """
     import asyncio
     
@@ -1094,20 +1182,29 @@ def generate_post_with_ai(
         )
         return result.content if result else None
     
-    # Run async function in sync context
+    # Always use asyncio.run() in a dedicated thread to avoid conflicts
+    # with any running event loop (e.g. FastAPI, Celery, Jupyter).
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # If we're already in an async context, create a new task
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, _generate())
-                return future.result()
-        else:
-            return loop.run_until_complete(_generate())
-    except RuntimeError:
-        # No event loop, create one
-        return asyncio.run(_generate())
+        # Fast path: no loop running → safe to asyncio.run directly
+        try:
+            asyncio.get_running_loop()
+            _has_running_loop = True
+        except RuntimeError:
+            _has_running_loop = False
+        
+        if not _has_running_loop:
+            return asyncio.run(_generate())
+        
+        # An event loop is already running (e.g. called from an async
+        # context or a framework with its own loop). Spin up a worker
+        # thread with its own fresh loop so we never block the caller.
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(asyncio.run, _generate())
+            return future.result(timeout=60)
+    except Exception as e:
+        logger.error("legacy_wrapper_failed", error=str(e))
+        return None
 
 
 # =============================================================================
@@ -1124,6 +1221,11 @@ def get_available_providers() -> dict:
         "groq": {
             "available": bool(GROQ_API_KEY),
             "model": GROQ_MODEL,
+            "tier": "free",
+        },
+        "mistral": {
+            "available": bool(MISTRAL_API_KEY),
+            "model": MISTRAL_MODEL,
             "tier": "free",
         },
         "openai": {

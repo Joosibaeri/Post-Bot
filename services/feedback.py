@@ -36,9 +36,10 @@ async def save_feedback(
     db = get_database()
     
     try:
-        await db.execute("""
+        row = await db.fetch_one("""
             INSERT INTO feedback (user_id, rating, liked, improvements, suggestions, created_at)
             VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id
         """, [
             user_id,
             rating,
@@ -48,11 +49,6 @@ async def save_feedback(
             int(time.time())
         ])
         
-        # Get the ID of the inserted feedback
-        row = await db.fetch_one(
-            "SELECT id FROM feedback WHERE user_id = $1 ORDER BY id DESC LIMIT 1",
-            [user_id]
-        )
         feedback_id = row['id'] if row else None
         
         return {

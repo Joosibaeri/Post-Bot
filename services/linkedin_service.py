@@ -16,15 +16,10 @@ SECURITY NOTES:
 """
 
 import os
+import logging
 import requests
 
-# Fallback credentials from environment (used if per-user tokens not available)
-# CREDENTIAL CLASSIFICATION:
-# - LINKEDIN_ACCESS_TOKEN: (A) App-level secret - CLI fallback only, web uses per-user DB tokens
-# - LINKEDIN_USER_URN: (A) App-level - CLI fallback only, web uses per-user DB values
-# SECURITY: These are loaded from environment, never hardcoded
-LINKEDIN_ACCESS_TOKEN = os.getenv('LINKEDIN_ACCESS_TOKEN', '')
-LINKEDIN_USER_URN = os.getenv('LINKEDIN_USER_URN', '')
+logger = logging.getLogger(__name__)
 
 
 def upload_image_to_linkedin(
@@ -49,12 +44,13 @@ def upload_image_to_linkedin(
         
     SECURITY: Access token is only sent in Authorization header, never logged.
     """
-    print("📤 Uploading image to LinkedIn...")
+    logger.info("Uploading image to LinkedIn...")
     
     try:
         # Use provided credentials or fall back to environment
-        token = access_token or LINKEDIN_ACCESS_TOKEN
-        owner = linkedin_user_urn or LINKEDIN_USER_URN
+        # Read env vars at call time so they reflect runtime changes
+        token = access_token or os.getenv('LINKEDIN_ACCESS_TOKEN', '')
+        owner = linkedin_user_urn or os.getenv('LINKEDIN_USER_URN', '')
         
         if not token or not owner:
             raise RuntimeError('Missing access_token or linkedin_user_urn for upload')
@@ -86,8 +82,8 @@ def upload_image_to_linkedin(
         
         if response.status_code != 200:
             # Log error without exposing token
-            print(f"❌ Failed to register upload: {response.status_code}")
-            print(f"Response: {response.text[:500]}")  # Truncate for safety
+            logger.error(f"Failed to register upload: {response.status_code}")
+            logger.debug(f"Response: {response.text[:500]}")
             return None
 
         register_response = response.json()
@@ -97,24 +93,24 @@ def upload_image_to_linkedin(
         ]['uploadUrl']
 
         # Step 2: Upload the actual image
-        print("⬆️  Uploading to LinkedIn...")
+        logger.info("Uploading to LinkedIn...")
         upload_headers = {'Authorization': f'Bearer {token}'}
         upload_response = requests.put(upload_url, headers=upload_headers, data=image_data, timeout=60)
 
         if upload_response.status_code in [200, 201]:
-            print(f"✅ Image uploaded successfully: {asset_urn}")
+            logger.info(f"Image uploaded successfully: {asset_urn}")
             return asset_urn
         else:
-            print(f"❌ Failed to upload image: {upload_response.status_code}")
-            print(f"Response: {upload_response.text[:500]}")
+            logger.error(f"Failed to upload image: {upload_response.status_code}")
+            logger.debug(f"Response: {upload_response.text[:500]}")
             return None
             
     except requests.Timeout:
-        print("⚠️  Image upload timed out")
+        logger.warning("Image upload timed out")
         return None
     except Exception as e:
         # SECURITY: Don't expose token in error messages
-        print(f"⚠️  Error uploading image: {type(e).__name__}: {str(e)[:200]}")
+        logger.error(f"Error uploading image: {type(e).__name__}: {str(e)[:200]}")
         return None
 
 
@@ -155,8 +151,9 @@ def post_to_linkedin(
     url = "https://api.linkedin.com/v2/ugcPosts"
     
     # Use provided credentials or fall back to environment
-    token = access_token or LINKEDIN_ACCESS_TOKEN
-    owner = linkedin_user_urn or LINKEDIN_USER_URN
+    # Read env vars at call time so they reflect runtime changes
+    token = access_token or os.getenv('LINKEDIN_ACCESS_TOKEN', '')
+    owner = linkedin_user_urn or os.getenv('LINKEDIN_USER_URN', '')
     
     if not token or not owner:
         raise RuntimeError('Missing access_token or linkedin_user_urn for posting')
@@ -206,23 +203,22 @@ def post_to_linkedin(
 
     # Truncate message for logging (don't expose full content)
     preview = message_text[:30].replace('\n', ' ')
-    print(f"🤖 Posting: '{preview}...'")
+    logger.info(f"Posting: '{preview}...'")
     
     try:
         response = requests.post(url, headers=headers, json=post_data, timeout=30)
         
         if response.status_code == 201:
-            print("\n✅ SUCCESS! Post is live.")
+            logger.info("Post published successfully")
             return True
         else:
-            print(f"\n❌ FAILED. Status: {response.status_code}")
-            # Log response for debugging (truncated for safety)
-            print(f"Response: {response.text[:500]}")
+            logger.error(f"Post failed. Status: {response.status_code}")
+            logger.debug(f"Response: {response.text[:500]}")
             return False
             
     except requests.Timeout:
-        print("⚠️  Post request timed out")
+        logger.warning("Post request timed out")
         return False
     except Exception as e:
-        print(f"⚠️  Error posting: {type(e).__name__}: {str(e)[:200]}")
+        logger.error(f"Error posting: {type(e).__name__}: {str(e)[:200]}")
         return False

@@ -97,18 +97,18 @@ def get_relevant_image(post_content: str, unsplash_key: str = None):
             data = response.json()
             image_download_url = data['urls']['regular']
             image_description = data.get('alt_description', 'No description')
-            print(f"✅ Found image: {image_description}")
-            print(f"   Downloading...")
+            logger.info(f"Found image: {image_description}")
+            logger.info("Downloading image...")
             img_response = requests.get(image_download_url, timeout=10)
             if img_response.status_code == 200:
-                print(f"✅ Image downloaded successfully ({len(img_response.content)} bytes)")
+                logger.info(f"Image downloaded successfully ({len(img_response.content)} bytes)")
                 return img_response.content
             else:
-                print(f"⚠️  Failed to download image: {img_response.status_code}")
+                logger.warning(f"Failed to download image: {img_response.status_code}")
                 return None
         else:
-            print(f"⚠️  Unsplash API error: {response.status_code}")
+            logger.warning(f"Unsplash API error: {response.status_code}")
             return None
     except Exception as e:
-        print(f"⚠️  Error fetching image: {e}")
+        logger.error(f"Error fetching image: {e}")
         return None

@@ -99,7 +99,10 @@ except ImportError:
 try:
     from middleware.clerk_auth import get_current_user
 except ImportError:
-    get_current_user = None
+    logger.error("clerk_auth_import_failed", detail="Authentication middleware unavailable - all authenticated endpoints will reject requests")
+    async def get_current_user():
+        """Fallback that rejects all requests when auth middleware is unavailable."""
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
 
 from services.db import get_database
 from repositories.posts import PostRepository
@@ -146,7 +149,7 @@ class BatchGenerateRequest(BaseModel):
 @router.post("/generate-preview")
 async def generate_preview(
     req: GenerateRequest,
-    current_user: dict = Depends(get_current_user) if get_current_user else None
+    current_user: dict = Depends(get_current_user)
 ):
     """Generate an AI post preview from context.
     
@@ -159,7 +162,7 @@ async def generate_preview(
     if not generate_linkedin_post:
         # Fallback to legacy if new function unavailable
         if not generate_post_with_ai:
-            return {"error": "AI service not available (import failed)"}
+            raise HTTPException(status_code=503, detail="AI service not available")
     
     # Use authenticated user_id if available, otherwise fall back to request body
     user_id = None
@@ -234,7 +237,7 @@ async def generate_preview(
 @router.post("/generate-batch")
 async def generate_batch(
     req: BatchGenerateRequest,
-    current_user: dict = Depends(get_current_user) if get_current_user else None
+    current_user: dict = Depends(get_current_user)
 ):
     """Generate multiple posts for Bot Mode.
     
@@ -246,7 +249,7 @@ async def generate_batch(
     - Pro tier: Can specify groq, openai, or anthropic
     """
     if not generate_linkedin_post and not generate_post_with_ai:
-        return {"error": "AI service not available (import failed)"}
+        raise HTTPException(status_code=503, detail="AI service not available")
     
     # Use authenticated user_id if available, otherwise fall back to request body
     user_id = req.user_id
@@ -329,7 +332,7 @@ async def generate_batch(
                     # PERSISTENCE: Save as draft immediately
                     try:
                         db = get_database()
-                        repo = PostRepository(db, req.user_id)
+                        repo = PostRepository(db, user_id)
                         saved_id = await repo.save_post(
                             post_content=result.content,
                             post_type='bot',
@@ -369,7 +372,7 @@ async def generate_batch(
                     # PERSISTENCE: Save as draft immediately
                     try:
                         db = get_database()
-                        repo = PostRepository(db, req.user_id)
+                        repo = PostRepository(db, user_id)
                         saved_id = await repo.save_post(
                             post_content=post_content,
                             post_type='bot',
@@ -410,7 +413,7 @@ async def generate_batch(
 @router.get("/bot-stats")
 async def get_bot_stats(
     user_id: str,
-    current_user: dict = Depends(get_current_user) if get_current_user else None
+    current_user: dict = Depends(get_current_user)
 ):
     """Get statistics for bot mode (generated vs published)."""
     if current_user and current_user.get("user_id") != user_id:
@@ -427,7 +430,7 @@ async def get_bot_stats(
 
 @router.get("/providers")
 async def list_providers(
-    current_user: dict = Depends(get_current_user) if get_current_user else None
+    current_user: dict = Depends(get_current_user)
 ):
     """List available AI providers and their configuration status.
     
@@ -476,7 +479,7 @@ async def list_providers(
 @router.post("/publish")
 async def publish(
     req: PostRequest,
-    current_user: dict = Depends(get_current_user) if get_current_user else None
+    current_user: dict = Depends(get_current_user)
 ):
     """Publish a post to LinkedIn.
 
@@ -636,7 +639,7 @@ async def publish(
 @router.post("/schedule")
 async def schedule(
     req: ScheduleRequest,
-    current_user: dict = Depends(get_current_user) if get_current_user else None
+    current_user: dict = Depends(get_current_user)
 ):
     """Schedule a post for later publishing."""
     # Verify ownership

@@ -35,7 +35,7 @@ async def save_post(
     timestamp = int(time.time())
     published_at = timestamp if status == 'published' else None
     
-    result = await db.execute("""
+    row = await db.fetch_one("""
         INSERT INTO post_history 
         (user_id, post_content, post_type, context, status, linkedin_post_id, engagement, created_at, published_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -52,11 +52,6 @@ async def save_post(
         published_at
     ])
     
-    # For databases library, we need to fetch the returned id
-    row = await db.fetch_one(
-        "SELECT id FROM post_history WHERE user_id = $1 ORDER BY id DESC LIMIT 1",
-        [user_id]
-    )
     return row['id'] if row else None
 
 

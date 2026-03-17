@@ -133,16 +133,24 @@ async def _process_due_posts_async() -> int:
                 continue
             
             # Publish to LinkedIn
+            # NOTE: linkedin_service.post_to_linkedin returns bool (True/False)
             result = funcs['post_to_linkedin'](
                 message_text=post['post_content'],
                 access_token=tokens['access_token'],
             )
             
-            if result.get('success'):
+            # Handle both bool (sync) and dict (async) return types
+            if isinstance(result, dict):
+                success = result.get('success', False)
+                error_msg = result.get('error', 'Unknown error')
+            else:
+                success = bool(result)
+                error_msg = 'Publishing returned failure'
+            
+            if success:
                 await funcs['update_post_status'](post_id, 'published')
                 log.info("post_published_successfully")
             else:
-                error_msg = result.get('error', 'Unknown error')
                 await funcs['update_post_status'](post_id, 'failed', error_msg)
                 log.error("post_publish_failed", error=error_msg)
             
@@ -187,17 +195,27 @@ async def _publish_single_post_async(
             return {'success': False, 'error': 'No valid LinkedIn token'}
         
         # Publish to LinkedIn
+        # NOTE: linkedin_service.post_to_linkedin returns bool (True/False)
         result = funcs['post_to_linkedin'](
             message_text=post_content,
             access_token=tokens['access_token'],
         )
         
-        if result.get('success'):
+        # Handle both bool (sync) and dict (async) return types
+        if isinstance(result, dict):
+            success = result.get('success', False)
+            error_msg = result.get('error', 'Unknown error')
+            post_id_result = result.get('id')
+        else:
+            success = bool(result)
+            error_msg = 'Publishing returned failure'
+            post_id_result = None
+        
+        if success:
             await funcs['update_post_status'](post_id, 'published')
             log.info("single_post_published")
-            return {'success': True, 'linkedin_post_id': result.get('id')}
+            return {'success': True, 'linkedin_post_id': post_id_result}
         else:
-            error_msg = result.get('error', 'Unknown error')
             await funcs['update_post_status'](post_id, 'failed', error_msg)
             log.error("single_post_failed", error=error_msg)
             return {'success': False, 'error': error_msg}

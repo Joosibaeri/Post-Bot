@@ -171,13 +171,15 @@ class TestGeneratePostWithAI:
         
         assert result is not None
     
+    @patch('services.ai_service._generate_with_mistral')
     @patch('services.ai_service._generate_with_groq')
-    def test_generate_post_returns_none_when_generation_fails(self, mock_groq):
-        """Should return None when Groq generation fails."""
+    def test_generate_post_returns_none_when_generation_fails(self, mock_groq, mock_mistral):
+        """Should return None when all providers fail."""
         from services.ai_service import generate_post_with_ai
         
-        # Mock the Groq function to return None (simulating failure)
+        # Mock all free-tier providers to return None (simulating failure)
         mock_groq.return_value = None
+        mock_mistral.return_value = None
         
         context = {"type": "push", "commits": 1, "repo": "test"}
         

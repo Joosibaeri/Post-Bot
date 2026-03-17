@@ -55,7 +55,10 @@ async def process_due_posts():
                 continue
             
             # Publish to LinkedIn
-            result = post_to_linkedin(
+            # NOTE: post_to_linkedin (from linkedin_service) is sync and uses requests
+            # Run in thread to avoid blocking the async event loop
+            result = await asyncio.to_thread(
+                post_to_linkedin,
                 message_text=post['post_content'],
                 access_token=tokens['access_token'],
                 linkedin_user_urn=tokens.get('linkedin_user_urn'),

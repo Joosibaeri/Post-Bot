@@ -742,11 +742,13 @@ async def get_access_token_for_urn(
         refreshed = refresh_access_token(refresh_token, user_id=user_id)
         
         # Update stored token with new values
+        # IMPORTANT: Pass user_id to preserve the user association
         await save_token(
             linkedin_user_urn, 
             refreshed.access_token, 
             refreshed.refresh_token, 
             refreshed.expires_at,
+            user_id=user_id,
         )
         
         log.info("token_refreshed_and_stored", user_id=user_id)

@@ -183,7 +183,7 @@ async def github_oauth_callback(code: str = None, state: str = None, redirect_ur
 @router.post("/disconnect-github")
 async def disconnect_github(
     request: DisconnectRequest,
-    current_user: dict = Depends(require_auth) if require_auth else None
+    current_user: dict = Depends(require_auth)
 ):
     """
     Disconnect a user's GitHub OAuth token (secured - verifies ownership).
@@ -235,7 +235,7 @@ async def github_repo(owner: str, repo: str):
 @router.post("/github/scan")
 async def scan_github_activity(
     req: ScanRequest,
-    current_user: dict = Depends(require_auth) if require_auth else None
+    current_user: dict = Depends(require_auth)
 ):
     """Scan GitHub for recent activity (secured)
     
@@ -278,7 +278,7 @@ async def scan_github_activity(
     
     # Fallback to env var
     if not github_username:
-        github_username = os.getenv('GITHUB_USERNAME', 'cliff-de-tech')
+        github_username = os.getenv('GITHUB_USERNAME', '')
     
     if not github_username:
         return {"error": "No GitHub username configured", "activities": [], "all_activities": []}

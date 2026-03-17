@@ -201,7 +201,7 @@ async def linkedin_callback(code: str = None, state: str = None, redirect_uri: s
 @router.post("/disconnect-linkedin")
 async def disconnect_linkedin(
     request: DisconnectRequest,
-    current_user: dict = Depends(require_auth) if require_auth else None
+    current_user: dict = Depends(require_auth)
 ):
     """
     Disconnect a user's LinkedIn account (secured - verifies ownership).

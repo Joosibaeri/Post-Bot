@@ -11,6 +11,7 @@ GRACEFUL FAILURES:
     - Expired token → Prompt to reconnect
     - Invalid token → Prompt to reconnect
 """
+import asyncio
 import time
 import logging
 from typing import Tuple, Optional, Dict
@@ -45,6 +46,23 @@ class TokenValidationResult:
         }
 
 
+def _run_async(coro):
+    """Run an async coroutine from sync context safely."""
+    try:
+        loop = asyncio.get_running_loop()
+        # Already in an async context — can't use asyncio.run()
+        # Return None to signal caller should use async variant
+        return None
+    except RuntimeError:
+        pass
+    # No running loop — safe to create one
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
 def validate_linkedin_token(user_id: str) -> TokenValidationResult:
     """
     Validate LinkedIn OAuth token for a user.
@@ -76,9 +94,10 @@ def validate_linkedin_token(user_id: str) -> TokenValidationResult:
         )
     
     try:
-        token_data = get_token_by_user_id(user_id)
+        # get_token_by_user_id is async — must bridge to sync
+        token_data = _run_async(get_token_by_user_id(user_id))
         
-        if not token_data:
+        if token_data is None:
             return TokenValidationResult(
                 valid=False,
                 error_code="not_connected",
@@ -157,9 +176,10 @@ def validate_github_token(user_id: str) -> TokenValidationResult:
         )
     
     try:
-        token_data = get_token_by_user_id(user_id)
+        # get_token_by_user_id is async — must bridge to sync
+        token_data = _run_async(get_token_by_user_id(user_id))
         
-        if not token_data:
+        if token_data is None:
             # GitHub OAuth is optional
             return TokenValidationResult(
                 valid=False,

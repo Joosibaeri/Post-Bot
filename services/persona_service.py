@@ -21,6 +21,7 @@ PERSONA SCHEMA:
 }
 """
 
+import copy
 import json
 import logging
 from typing import Optional
@@ -48,7 +49,7 @@ async def get_user_persona(user_id: str) -> dict:
     """
     settings = await get_user_settings(user_id)
     if not settings or not settings.get('persona'):
-        return DEFAULT_PERSONA.copy()
+        return copy.deepcopy(DEFAULT_PERSONA)
     
     # Merge with defaults to ensure all keys exist
     persona = {**DEFAULT_PERSONA, **settings.get('persona', {})}
@@ -93,11 +94,15 @@ def build_persona_prompt(persona: dict) -> str:
     if not has_custom_content:
         return ""
     
+    # Lazy import to avoid circular dependency
+    from services.ai_service import sanitize_prompt_input
+    
     parts = ["\n\n=== USER PERSONA ==="]
     parts.append("Write as this specific person, matching their voice and style:")
     
     if persona.get('bio'):
-        parts.append(f"\nWHO THEY ARE: {persona['bio']}")
+        bio = sanitize_prompt_input(persona['bio'], max_length=500)
+        parts.append(f"\nWHO THEY ARE: {bio}")
     
     if persona.get('tone'):
         tone_descriptions = {
@@ -114,7 +119,8 @@ def build_persona_prompt(persona: dict) -> str:
         parts.append(f"\nCORE TOPICS: {topics}")
     
     if persona.get('signature_style'):
-        parts.append(f"\nSIGNATURE STYLE: {persona['signature_style']}")
+        sig = sanitize_prompt_input(persona['signature_style'], max_length=300)
+        parts.append(f"\nSIGNATURE STYLE: {sig}")
     
     if persona.get('emoji_usage'):
         emoji_map = {
@@ -168,8 +174,8 @@ async def build_full_persona_context(user_id: str, include_learned: bool = True)
             learned_context = build_style_context(persona['learned_patterns'])
             if learned_context:
                 context = context + "\n" + learned_context
-        except ImportError:
-            pass  # persona_analyzer not available
+        except ImportError as e:
+            logger.warning("persona_analyzer import failed", exc_info=True)
     
     return context
 

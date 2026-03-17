@@ -5,6 +5,8 @@ Provides rate limiting, request validation, and CORS configuration for the Linke
 """
 
 import time
+import asyncio
+import inspect
 import functools
 from typing import Dict, Optional, Callable
 from collections import defaultdict
@@ -97,11 +99,9 @@ def rate_limit(limiter: RateLimiter):
             ...
     """
     def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # Try to get user_id from kwargs or first arg
+        def _check_rate_limit(*args, **kwargs):
+            """Shared rate-limit check logic."""
             user_id = kwargs.get('user_id') or (args[0] if args else 'anonymous')
-            
             if not limiter.is_allowed(str(user_id)):
                 remaining = limiter.get_remaining(str(user_id))
                 reset_time = limiter.get_reset_time(str(user_id))
@@ -109,9 +109,19 @@ def rate_limit(limiter: RateLimiter):
                     f"Rate limit exceeded. Remaining: {remaining}. "
                     f"Reset in: {int(reset_time)} seconds" if reset_time else ""
                 )
-            
-            return func(*args, **kwargs)
-        return wrapper
+
+        if inspect.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                _check_rate_limit(*args, **kwargs)
+                return await func(*args, **kwargs)
+            return async_wrapper
+        else:
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                _check_rate_limit(*args, **kwargs)
+                return func(*args, **kwargs)
+            return wrapper
     return decorator
 
 

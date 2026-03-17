@@ -29,7 +29,7 @@ async def delete_user_tokens(user_id: str) -> int:
     db = get_database()
     try:
         result = await db.execute(
-            "DELETE FROM accounts WHERE user_id = :p1", 
+            "DELETE FROM accounts WHERE user_id = $1", 
             [user_id]
         )
         deleted = result if isinstance(result, int) else 1
@@ -45,7 +45,7 @@ async def delete_user_settings(user_id: str) -> int:
     db = get_database()
     try:
         result = await db.execute(
-            "DELETE FROM user_settings WHERE user_id = :p1", 
+            "DELETE FROM user_settings WHERE user_id = $1", 
             [user_id]
         )
         deleted = result if isinstance(result, int) else 1
@@ -61,7 +61,7 @@ async def delete_user_posts(user_id: str) -> int:
     db = get_database()
     try:
         result = await db.execute(
-            "DELETE FROM post_history WHERE user_id = :p1", 
+            "DELETE FROM post_history WHERE user_id = $1", 
             [user_id]
         )
         deleted = result if isinstance(result, int) else 1
@@ -77,7 +77,7 @@ async def delete_user_scheduled_posts(user_id: str) -> int:
     db = get_database()
     try:
         result = await db.execute(
-            "DELETE FROM scheduled_posts WHERE user_id = :p1", 
+            "DELETE FROM scheduled_posts WHERE user_id = $1", 
             [user_id]
         )
         deleted = result if isinstance(result, int) else 1
@@ -93,7 +93,7 @@ async def delete_user_feedback(user_id: str) -> int:
     db = get_database()
     try:
         result = await db.execute(
-            "DELETE FROM feedback WHERE user_id = :p1", 
+            "DELETE FROM feedback WHERE user_id = $1", 
             [user_id]
         )
         deleted = result if isinstance(result, int) else 1

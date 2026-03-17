@@ -22,16 +22,12 @@ async def schedule_post(
     db = get_database()
     
     try:
-        await db.execute("""
+        row = await db.fetch_one("""
             INSERT INTO scheduled_posts (user_id, post_content, image_url, scheduled_time, created_at)
             VALUES ($1, $2, $3, $4, $5)
+            RETURNING id
         """, [user_id, post_content, image_url, scheduled_time, int(time.time())])
         
-        # Get the ID of the inserted post
-        row = await db.fetch_one(
-            "SELECT id FROM scheduled_posts WHERE user_id = $1 AND scheduled_time = $2",
-            [user_id, scheduled_time]
-        )
         post_id = row['id'] if row else None
         
         return {

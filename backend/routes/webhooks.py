@@ -64,6 +64,18 @@ def verify_clerk_signature(payload: bytes, headers: dict) -> bool:
         logger.warning("Missing Svix headers in webhook request")
         return False
     
+    # Validate timestamp to prevent replay attacks (5 minute tolerance)
+    import time as _time
+    try:
+        ts = int(svix_timestamp)
+        now = int(_time.time())
+        if abs(now - ts) > 300:  # 5 minutes
+            logger.warning("Webhook timestamp too old or in the future, possible replay attack")
+            return False
+    except (ValueError, TypeError):
+        logger.warning("Invalid svix-timestamp header")
+        return False
+    
     # Construct the signed payload
     signed_payload = f"{svix_id}.{svix_timestamp}.{payload.decode('utf-8')}"
     

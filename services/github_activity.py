@@ -119,6 +119,9 @@ def get_user_activity(username: str, limit: int = 10, token: str = None):
             if activity:
                 activities.append(activity)
         
+        # Cache the results to avoid re-fetching within TTL
+        _set_cached(cache_key, activities)
+        
         return activities
     except Exception as e:
         logger.error(f"Error fetching GitHub activity: {e}")
@@ -145,7 +148,7 @@ def parse_event(event):
         else:
             minutes = diff.seconds // 60
             time_ago = f"{minutes} minute{'s' if minutes > 1 else ''} ago"
-    except:
+    except Exception:
         time_ago = "recently"
     
     activity = {
