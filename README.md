@@ -42,6 +42,7 @@ It's built for developers who want to grow their professional presence without s
 | **Payments** | Stripe integration with free/pro/enterprise tiers |
 | **AI Status Messages** | Real-time, personalised chat-bubble feedback during all AI operations |
 | **CLI Bot Mode** | Standalone script for scheduled, automated posting |
+| **Repurpose Engine** | Convert any URL (articles, YouTube, tweets) into a ready-to-publish LinkedIn post |
 
 ## What This App Does NOT Do ❌
 
@@ -78,6 +79,7 @@ It's built for developers who want to grow their professional presence without s
 - **Focus Trapping**: Full keyboard accessibility in modals
 - **Request Tracing**: X-Request-ID middleware for distributed tracing
 - **Stripe Payments**: Subscription tiers with usage-based limits
+- **Repurpose Engine**: Paste a URL and let AI extract key insights to generate a LinkedIn post.
 
 ### ⚠️ Known Limitations
 
@@ -137,6 +139,16 @@ It's built for developers who want to grow their professional presence without s
 - **Schedule for Later**: Ability to schedule posts for future publication dates.
 - **Background Processing**: Powered by Celery and Redis for reliable timely delivery.
 - **Management**: View and manage scheduled posts directly from the history view.
+
+---
+
+## 🆕 Recent Updates (March 2026)
+
+### Repurpose Engine ♻️
+
+- **URL to Post**: Quickly convert content from any URL into a well-structured LinkedIn post.
+- **Smart Extraction**: AI identifies the core message and key takeaways from articles, videos, and tweets.
+- **Seamless Integration**: Directly sends repurposed content to the Post Editor for immediate editing or publishing.
 
 ---
 

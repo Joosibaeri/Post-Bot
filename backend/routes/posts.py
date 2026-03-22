@@ -13,6 +13,9 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+import json
+
+from schemas.requests import RepurposeRequest
 
 logger = structlog.get_logger(__name__)
 
@@ -73,6 +76,11 @@ try:
     from services.scheduled_posts import schedule_post
 except ImportError:
     schedule_post = None
+
+try:
+    from services.scrape_service import scrape_url
+except ImportError:
+    scrape_url = None
 
 try:
     from services.auth_service import (
@@ -232,6 +240,150 @@ async def generate_preview(
     # Fallback to legacy sync function
     post = generate_post_with_ai(req.context, groq_api_key=groq_api_key, persona_context=persona_context)
     return {"post": post, "provider": "groq", "model": "llama-3.3-70b-versatile"}
+
+
+@router.post("/repurpose")
+async def repurpose_url(
+    req: RepurposeRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Takes a URL, scrapes its content, and generates 3 diverse LinkedIn posts using AI.
+    """
+    if not generate_linkedin_post or not scrape_url:
+        raise HTTPException(status_code=503, detail="Required services not available")
+        
+    user_id = req.user_id if getattr(req, 'user_id', None) else (current_user.get("user_id") if current_user else None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+        
+    # Rate limit check
+    if RATE_LIMITING_ENABLED and post_generation_limiter:
+        allowed, rate_info = post_generation_limiter.is_allowed(user_id)
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded for post generation",
+                headers={"Retry-After": str(rate_info.get('retry_after', 60))}
+            )
+
+    # 1. Scrape the URL
+    try:
+        scraped_content = await scrape_url(req.url)
+    except Exception as e:
+        logger.error("scraping_failed", url=req.url, error=str(e))
+        raise HTTPException(status_code=400, detail=f"Failed to scrape URL: {str(e)}")
+
+    if not scraped_content:
+        raise HTTPException(status_code=400, detail="Could not extract content from the URL")
+
+    # Limit scraped content size to avoid context window explosion
+    max_chars = 8000
+    if len(scraped_content) > max_chars:
+        scraped_content = scraped_content[:max_chars] + "..."
+
+    # 2. Get API Keys & Settings
+    groq_api_key = None
+    openai_api_key = None
+    anthropic_api_key = None
+    
+    if get_user_settings:
+        try:
+            settings = await get_user_settings(user_id)
+            if settings:
+                groq_api_key = settings.get('groq_api_key')
+                openai_api_key = settings.get('openai_api_key')
+                anthropic_api_key = settings.get('anthropic_api_key')
+        except Exception as e:
+            logger.warning("failed_to_get_user_settings", error=str(e))
+            
+    # Get user's persona context
+    persona_context = None
+    if build_full_persona_context:
+        try:
+            persona_context = await build_full_persona_context(user_id)
+        except Exception as e:
+            logger.warning("failed_to_get_persona", error=str(e))
+
+    # 3. Build Context
+    context_data = {
+        "url": req.url,
+        "content": scraped_content,
+        "type": "repurpose"
+    }
+
+    # 4. Generate AI content
+    result = await generate_linkedin_post(
+        context_data=context_data,
+        user_id=user_id,
+        model_provider=req.model or "groq",
+        style="standard",
+        groq_api_key=groq_api_key,
+        openai_api_key=openai_api_key,
+        anthropic_api_key=anthropic_api_key,
+        persona_context=persona_context,
+    )
+    
+    if not result or not result.content:
+        raise HTTPException(status_code=500, detail="Failed to generate posts from AI")
+        
+    # 5. Parse JSON array
+    try:
+        # Sometimes the AI returns backticks around JSON
+        raw_content = result.content.strip()
+        if raw_content.startswith("```json"):
+            raw_content = raw_content[7:]
+        if raw_content.startswith("```"):
+            raw_content = raw_content[3:]
+        if raw_content.endswith("```"):
+            raw_content = raw_content[:-3]
+            
+        posts_array = json.loads(raw_content.strip())
+        if not isinstance(posts_array, list):
+            # Fallback if AI somehow returns a string or object not array
+            posts_array = [result.content]
+    except Exception as e:
+        logger.error("repurpose_json_parse_failed", error=str(e), content=result.content)
+        # Fallback to single raw post if JSON parsing fails
+        posts_array = [result.content]
+
+    # Save to database (as drafts)
+    saved_posts = []
+    try:
+        db = await get_database()
+        post_repo = PostRepository(db)
+        
+        for post_content in posts_array:
+            saved_post = await post_repo.create_post(
+                user_id=user_id,
+                content=post_content,
+                status="draft", # they start as drafts
+                context=context_data,
+                model_used=result.model
+            )
+            # MongoDB returns _id as ObjectId, need to stringify
+            post_id = str(saved_post["_id"]) if "_id" in saved_post else str(saved_post.get("id", ""))
+            saved_posts.append({
+                "id": post_id,
+                "content": saved_post.get("content", post_content),
+                "status": "draft",
+                "createdAt": saved_post.get("created_at")
+            })
+    except Exception as e:
+        logger.error("failed_to_save_repurposed_posts", error=str(e))
+        # We can still return the generated content
+        for idx, post_content in enumerate(posts_array):
+            saved_posts.append({
+                "id": f"temp_{idx}",
+                "content": post_content,
+                "status": "draft"
+            })
+            
+    return {
+        "posts": saved_posts,
+        "provider": result.provider.value if result else "unknown",
+        "model": result.model if result else "unknown"
+    }
 
 
 @router.post("/generate-batch")
