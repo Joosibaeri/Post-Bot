@@ -142,16 +142,6 @@ It's built for developers who want to grow their professional presence without s
 
 ---
 
-## 🆕 Recent Updates (March 2026)
-
-### Repurpose Engine ♻️
-
-- **URL to Post**: Quickly convert content from any URL into a well-structured LinkedIn post.
-- **Smart Extraction**: AI identifies the core message and key takeaways from articles, videos, and tweets.
-- **Seamless Integration**: Directly sends repurposed content to the Post Editor for immediate editing or publishing.
-
----
-
 ## 🆕 Recent Updates (February 2026)
 
 ### Interactive AI Status Messages 🤖
@@ -216,6 +206,15 @@ It's built for developers who want to grow their professional presence without s
 - **GitHub TTLCache**: In-memory TTL cache for GitHub activity fetches to reduce redundant API calls.
 - **HTTP Client Standardization**: Frontend migrated from raw `axios` calls to a centralized `api` utility with interceptors.
 - **CI Fixes**: Backend test auth overrides, frontend type alignment, and dashboard test async handling.
+---
+
+## 🆕 Recent Updates (March 2026)
+
+### Repurpose Engine ♻️
+
+- **URL to Post**: Quickly convert content from any URL into a well-structured LinkedIn post.
+- **Smart Extraction**: AI identifies the core message and key takeaways from articles, videos, and tweets.
+- **Seamless Integration**: Directly sends repurposed content to the Post Editor for immediate editing or publishing.
 
 ---
 
