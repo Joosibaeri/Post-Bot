@@ -147,3 +147,12 @@ last_generated_post.txt
 # shared/contracts/openapi.json
 # shared/contracts/api.ts
 !shared/contracts/README.md
+
+# ========================================
+# DEBUG & TEMP FILES
+# ========================================
+check.txt
+nul
+test_output.txt
+auth_debug.log
+.last_hook
