@@ -51,10 +51,10 @@ interface PostEditorProps {
     tier?: string;  // User's subscription tier: 'free' | 'pro' | 'enterprise'
 }
 
-// Post type options with free tier availability
 const POST_TYPES = [
     { value: 'push', label: 'Push Event', icon: '🚀', freeAvailable: true },
     { value: 'generic', label: 'Generic Post', icon: '📝', freeAvailable: true },
+    { value: 'repurpose', label: 'Repurpose URL', icon: '🔗', freeAvailable: true },
     { value: 'pull_request', label: 'Pull Request', icon: '🔀', freeAvailable: false },
     { value: 'new_repo', label: 'New Repository', icon: '✨', freeAvailable: false },
 ];
@@ -273,6 +273,22 @@ export const PostEditor: React.FC<PostEditorProps> = ({
                     </>
                 )}
 
+                {context.type === 'repurpose' && (
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            Source URL
+                            <span className="ml-2 text-xs text-gray-500 font-normal">(article, blog, video, etc.)</span>
+                        </label>
+                        <Input
+                            type="url"
+                            value={context.url || ''}
+                            onChange={(e) => setContext({ ...context, url: e.target.value })}
+                            placeholder="https://example.com/article"
+                            aria-label="URL to repurpose"
+                        />
+                    </div>
+                )}
+
                 {/* AI Model Selector */}
                 <div>
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -361,6 +377,7 @@ export const PostEditor: React.FC<PostEditorProps> = ({
                         onClick={() => {
                             setPreview('');
                             setIsEditing(true);
+                            setContext({ ...context, type: 'generic' });
                             showToast.success('Started blank post');
                         }}
                         variant="secondary"

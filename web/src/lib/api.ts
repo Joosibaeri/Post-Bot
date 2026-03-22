@@ -57,6 +57,25 @@ export interface SchedulePostResponse {
   scheduled_id?: string;
 }
 
+export interface RepurposeUrlRequest {
+  url: string;
+  user_id: string;
+  model?: string;
+}
+
+export interface RepurposePostResult {
+  id: string;
+  content: string;
+  status: string;
+  createdAt?: string;
+}
+
+export interface RepurposeUrlResponse {
+  posts: RepurposePostResult[];
+  provider?: string;
+  model?: string;
+}
+
 // =============================================================================
 // API FUNCTIONS
 // =============================================================================
@@ -162,6 +181,45 @@ export async function schedulePost(
 
   if (!response.ok) {
     throw new Error(`Failed to schedule post: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Repurpose a URL into multiple posts
+ * 
+ * @param request - The repurpose request
+ * @param token - Optional authentication token
+ * @returns Promise with the generated posts
+ */
+export async function repurposeUrl(
+  request: RepurposeUrlRequest,
+  token?: string
+): Promise<RepurposeUrlResponse> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE}/api/post/repurpose`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    let detail = response.statusText;
+    try {
+      const errorData = await response.json();
+      if (errorData?.detail) detail = errorData.detail;
+    } catch {
+      // ignore
+    }
+    throw new Error(`Failed to repurpose URL: ${detail}`);
   }
 
   return response.json();
@@ -318,6 +376,7 @@ export const api = {
   generatePreview,
   publishPost,
   schedulePost,
+  repurposeUrl,
 };
 
 export default api;

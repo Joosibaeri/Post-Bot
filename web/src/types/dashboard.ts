@@ -96,6 +96,7 @@ export type PostContext =
     | ({ type: 'push' } & BasePostContext)
     | ({ type: 'pull_request' } & BasePostContext)
     | ({ type: 'new_repo' } & BasePostContext)
+    | ({ type: 'repurpose', url?: string } & BasePostContext)
     | ({ type: string & {} } & BasePostContext); // Fallback for templates e.g. 'thought-leadership'
 
 /**

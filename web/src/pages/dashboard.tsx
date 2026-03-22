@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { generatePreview, publishPost, schedulePost, api } from '@/lib/api';
+import { generatePreview, publishPost, schedulePost, api, repurposeUrl } from '@/lib/api';
 import { useRouter } from 'next/router';
 import { useUser, useAuth, UserButton } from '@clerk/nextjs';
 import { showToast } from '@/lib/toast';
@@ -203,6 +203,11 @@ export default function Dashboard() {
   }, [isLoaded, userId, isTestMode, router.isReady, checkAuthentication]);
 
   const handleGeneratePreview = async (model: 'groq' | 'openai' | 'anthropic' = 'groq') => {
+    if (context.type === 'repurpose' && !context.url) {
+      showToast.error('Please enter a valid URL to repurpose');
+      return;
+    }
+
     setLoading(true);
     setStatus('');
     ai.show(`Let me craft something amazing for you, ${firstName}... ✍️`);
@@ -215,19 +220,32 @@ export default function Dashboard() {
         ai.update('Almost there, adding the finishing touches... ✨');
       }, 2500);
 
-      const result = await generatePreview({ context, user_id: userId, model }, token || undefined);
-      clearTimeout(progressTimer);
-      setPreview(result.post || 'No post generated');
-
-      // Show completion via AI status
-      if (result.was_downgraded) {
-        ai.complete(`Your post is ready, ${firstName}! 👀 (Using free model — upgrade to Pro for premium AI)`);
+      if (context.type === 'repurpose' && context.url) {
+        const result = await repurposeUrl({ url: context.url, user_id: userId, model }, token || undefined);
+        clearTimeout(progressTimer);
+        
+        if (result.posts && result.posts.length > 0) {
+          setPreview(result.posts[0].content || 'No post generated');
+          ai.complete(`3 posts generated and saved as drafts! 🚀 Previewing the first one. Generated with ${result.provider || model}.`);
+        } else {
+          setPreview('No post generated');
+          ai.error('Failed to generate posts from the URL.');
+        }
       } else {
-        ai.complete(`Your post is ready! 🚀 Generated with ${result.provider || model}.`);
-      }
+        const result = await generatePreview({ context, user_id: userId, model }, token || undefined);
+        clearTimeout(progressTimer);
+        setPreview(result.post || 'No post generated');
 
-      // Save as draft
-      await savePost(result.post, 'draft');
+        // Show completion via AI status
+        if (result.was_downgraded) {
+          ai.complete(`Your post is ready, ${firstName}! 👀 (Using free model — upgrade to Pro for premium AI)`);
+        } else {
+          ai.complete(`Your post is ready! 🚀 Generated with ${result.provider || model}.`);
+        }
+
+        // Save as draft
+        await savePost(result.post, 'draft');
+      }
 
       // Refresh stats to update "Generated Posts" card immediately
       await refetchStats();
