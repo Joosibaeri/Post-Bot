@@ -60,8 +60,8 @@ TWITTER_ACCESS_TOKEN_SECRET: str = os.getenv('TWITTER_ACCESS_TOKEN_SECRET', '')
 def validate_credentials(*, require_linkedin: bool = True) -> bool:
     """Validate that required credentials are set. Returns True if valid."""
     missing: List[str] = []
-    if not GROQ_API_KEY:
-        missing.append("GROQ_API_KEY")
+    if not MISTRAL_API_KEY:
+        missing.append("MISTRAL_API_KEY")
     if not GITHUB_USERNAME:
         missing.append("GITHUB_USERNAME (or MY_GITHUB_USERNAME)")
     if require_linkedin:
@@ -643,11 +643,14 @@ Requirements:
         # Randomly select between available AI models for variety
         system_message = "You are a LinkedIn post writer. You MUST complete every post you write. Every post MUST end with exactly 8-12 hashtags on the final line. NEVER stop mid-sentence or before adding the hashtags. NEVER use markdown formatting — no **bold**, *italic*, ## headers, bullet points, or code blocks. Write plain text only. NEVER include @mentions — no @username or @company tags."
         
-        # Select AI model — prefer Mistral (70%) for variety
-        if mistral_client and random.random() < 0.7:
+        # Select AI model — always use Mistral (Groq key expired)
+        if mistral_client:
             selected_model = "mistral"
-        else:
+        elif groq_client:
             selected_model = "groq"
+        else:
+            logger.error("No AI client available (need MISTRAL_API_KEY or GROQ_API_KEY)")
+            return None
         
         if selected_model == "mistral" and mistral_client:
             logger.info("Using Mistral AI for this post...")
@@ -719,12 +722,20 @@ Requirements:
                             "then on a NEW LINE add exactly 8-12 relevant diverse hashtags.\n\nPOST SO FAR:\n" + current_text
                         )
                     
-                    resp = groq_client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
-                        messages=[{"role": "user", "content": cont_prompt}],
-                        temperature=0.6,
-                        max_tokens=500,
-                    )
+                    if mistral_client:
+                        resp = mistral_client.chat.complete(
+                            model="mistral-large-latest",
+                            messages=[{"role": "user", "content": cont_prompt}],
+                            temperature=0.6,
+                            max_tokens=500,
+                        )
+                    else:
+                        resp = groq_client.chat.completions.create(
+                            model="llama-3.3-70b-versatile",
+                            messages=[{"role": "user", "content": cont_prompt}],
+                            temperature=0.6,
+                            max_tokens=500,
+                        )
                     addition = resp.choices[0].message.content.strip()
                     
                     # Smart merge - check if addition already has the full post
