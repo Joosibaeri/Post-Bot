@@ -43,4 +43,5 @@ anthropic==0.75.0
 mistralai==1.2.5
 
 # Production server
-gunicorn==21.2.0beautifulsoup4==4.12.3
+gunicorn==21.2.0
+beautifulsoup4==4.12.3
