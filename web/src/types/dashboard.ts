@@ -42,6 +42,9 @@ export type UserSettingsRequest = components['schemas']['SettingsRequest'];
 /** Image preview request */
 export type ImagePreviewRequest = components['schemas']['ImagePreviewRequest'];
 
+import { z } from 'zod';
+import * as schemas from '../lib/schemas';
+
 // ============================================================================
 // Frontend-only types (not in API spec)
 // ============================================================================
@@ -50,38 +53,17 @@ export type ImagePreviewRequest = components['schemas']['ImagePreviewRequest'];
  * GitHub activity item from scan endpoint
  * Note: This is a frontend representation, the actual API returns generic objects
  */
-export interface GitHubActivity {
-    id: string;
-    type: string;
-    icon: string;
-    title: string;
-    description: string;
-    time_ago: string;
-    repo: string;
-    context: Record<string, unknown>;
-}
+export type GitHubActivity = z.infer<typeof schemas.GitHubActivitySchema>;
 
 /**
  * Post item for the dashboard queue
  */
-export interface DashboardPost {
-    id: string;
-    content: string;
-    image_url?: string;
-    status: 'draft' | 'published' | 'scheduled';
-    activity?: GitHubActivity;
-}
+export type DashboardPost = z.infer<typeof schemas.DashboardPostSchema>;
 
 /**
  * Template option for post generation styles
  */
-export interface Template {
-    id: string;
-    name: string;
-    description: string;
-    icon: string;
-    value: string;
-}
+export type Template = z.infer<typeof schemas.TemplateSchema>;
 
 /**
  * User stats from analytics endpoint
@@ -94,45 +76,34 @@ export interface UserStats {
 }
 
 /**
- * Post context for AI generation
+ * Base properties shared by all context types
  */
-export interface PostContext {
-    type: string;
+interface BasePostContext {
+    date?: string;
     commits?: number;
-    total_commits?: number;  // Total commits in the repo (from GitHub API)
+    total_commits?: number;
     repo?: string;
     full_repo?: string;
-    date?: string;
-    [key: string]: unknown;
+    pr_number?: number;
+    [key: string]: any; // Use any instead of unknown to allow React Node evaluation
 }
+
+/**
+ * Post context for AI generation
+ * Uses a discriminated union based on the `type` field for precise typing.
+ */
+export type PostContext = 
+    | ({ type: 'push' } & BasePostContext)
+    | ({ type: 'pull_request' } & BasePostContext)
+    | ({ type: 'new_repo' } & BasePostContext)
+    | ({ type: string & {} } & BasePostContext); // Fallback for templates e.g. 'thought-leadership'
 
 /**
  * Dashboard stats response
  */
-export interface DashboardStats {
-    posts_generated: number;
-    credits_remaining: number;
-    posts_published: number;
-    posts_published_this_month: number;
-    posts_scheduled: number;
-    posts_this_month: number;
-    posts_this_week: number;
-    posts_last_week: number;
-    growth_percentage: number;
-    draft_posts: number;
-}
+export type DashboardStats = z.infer<typeof schemas.DashboardStatsSchema>;
 
 /**
  * Usage data response
  */
-export interface UsageData {
-    tier: string;
-    posts_today: number;
-    posts_limit: number;
-    posts_remaining: number;
-    scheduled_count: number;
-    scheduled_limit: number;
-    scheduled_remaining: number;
-    resets_in_seconds: number;
-    resets_at: string | null;
-}
+export type UsageData = z.infer<typeof schemas.UsageDataSchema>;

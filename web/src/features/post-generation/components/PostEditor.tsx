@@ -5,6 +5,10 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Card } from '@/components/ui/Card';
+import { api } from '@/lib/api';
+import dynamic from 'next/dynamic';
+
+const ImageSelector = dynamic(() => import('@/features/post-generation/components/ImageSelector'));
 
 // AI Model options with tier restrictions
 type ModelProvider = 'groq' | 'openai' | 'anthropic';
@@ -42,19 +46,9 @@ const AI_MODELS: AIModel[] = [
 ];
 
 interface PostEditorProps {
-    context: PostContext;
-    setContext: (context: PostContext) => void;
-    onGenerate: (model: ModelProvider) => void;  // Now passes selected model
+    onGenerate: (model: ModelProvider) => void; 
     onPublish: (testMode: boolean) => void;
-    onWriteManually?: () => void;
-    loading: boolean;
-    status: string;
-    hasPreview: boolean;
     tier?: string;  // User's subscription tier: 'free' | 'pro' | 'enterprise'
-    // Image support
-    selectedImage?: string | null;
-    onImageClick?: () => void;
-    onRemoveImage?: () => void;
 }
 
 // Post type options with free tier availability
@@ -65,22 +59,63 @@ const POST_TYPES = [
     { value: 'new_repo', label: 'New Repository', icon: '✨', freeAvailable: false },
 ];
 
+import { useDraftStore } from '@/store/useDraftStore';
+
 export const PostEditor: React.FC<PostEditorProps> = ({
-    context,
-    setContext,
     onGenerate,
     onPublish,
-    onWriteManually,
-    loading,
-    status,
-    hasPreview,
     tier = 'free',
-    selectedImage = null,
-    onImageClick,
-    onRemoveImage
 }) => {
+    // State from Zustand Store
+    const { 
+        context, setContext, 
+        preview: previewText, setPreview,
+        isEditing, setIsEditing,
+        loading, status,
+        selectedImage, setSelectedImage
+    } = useDraftStore();
+    
+    const hasPreview = !!previewText;
+
     // State for selected AI model
     const [selectedModel, setSelectedModel] = useState<ModelProvider>('groq');
+
+    // Image Selector State
+    const [showImageSelector, setShowImageSelector] = useState(false);
+    const [loadingImages, setLoadingImages] = useState(false);
+    const [manualImages, setManualImages] = useState<Array<{ id: string, url: string, thumb: string, description: string, photographer: string, download_url: string }>>([]);
+
+    const handleOpenImageSelector = async () => {
+        setLoadingImages(true);
+        setShowImageSelector(true);
+        try {
+            const response = await api.post('/api/image/preview', {
+                post_content: previewText || 'coding developer tech',
+                count: 6
+            });
+            setManualImages(response.data.images || []);
+        } catch (error) {
+            showToast.error('Failed to load images');
+            setManualImages([]);
+        } finally {
+            setLoadingImages(false);
+        }
+    };
+
+    const handleRefreshImages = async () => {
+        setLoadingImages(true);
+        try {
+            const response = await api.post('/api/image/preview', {
+                post_content: previewText || 'coding developer tech',
+                count: 6
+            });
+            setManualImages(response.data.images || []);
+        } catch (error) {
+            showToast.error('Failed to refresh images');
+        } finally {
+            setLoadingImages(false);
+        }
+    };
 
     const handlePostTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newType = e.target.value;
@@ -323,7 +358,11 @@ export const PostEditor: React.FC<PostEditorProps> = ({
                     </Button>
 
                     <Button
-                        onClick={onWriteManually}
+                        onClick={() => {
+                            setPreview('');
+                            setIsEditing(true);
+                            showToast.success('Started blank post');
+                        }}
                         variant="secondary"
                         size="lg"
                         fullWidth
@@ -374,13 +413,13 @@ export const PostEditor: React.FC<PostEditorProps> = ({
                                 />
                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-3">
                                     <button
-                                        onClick={onImageClick}
+                                        onClick={handleOpenImageSelector}
                                         className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                                     >
                                         Change Image
                                     </button>
                                     <button
-                                        onClick={onRemoveImage}
+                                        onClick={() => setSelectedImage(null)}
                                         className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
                                     >
                                         Remove
@@ -389,8 +428,7 @@ export const PostEditor: React.FC<PostEditorProps> = ({
                             </div>
                         ) : (
                             <button
-                                onClick={onImageClick}
-                                disabled={!onImageClick}
+                                onClick={handleOpenImageSelector}
                                 className="w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -412,6 +450,20 @@ export const PostEditor: React.FC<PostEditorProps> = ({
                     </div>
                 )}
             </div>
+
+            {showImageSelector && (
+                <ImageSelector
+                    images={manualImages}
+                    selectedImage={selectedImage}
+                    onSelect={(imageUrl) => {
+                        setSelectedImage(imageUrl);
+                        setShowImageSelector(false);
+                    }}
+                    onClose={() => setShowImageSelector(false)}
+                    loading={loadingImages}
+                    onRefresh={handleRefreshImages}
+                />
+            )}
         </div>
     );
 };

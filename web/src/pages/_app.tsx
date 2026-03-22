@@ -29,11 +29,25 @@ export default function App({ Component, pageProps }: AppProps) {
   const [queryClient] = useState(() => new QueryClient({
     queryCache: new QueryCache({
       onError: (error: any) => {
-        // Only show toast if it's NOT an axios error (those are handled by interceptors in lib/api.ts)
-        if (!error.response) {
-          console.error('Query Error:', error);
-          showToast.error('An unexpected data error occurred. Please try refreshing.');
+        // Suppress toast for expected/handled error types:
+        // 1. HTTP errors from our api client (e.g. "Failed to fetch /api/stats: Unauthorized")
+        // 2. Zod validation errors (schema mismatches)
+        // 3. Abort/timeout errors
+        // 4. Network errors when backend is unreachable
+        // These are already surfaced via each query's isError state.
+        const message = error?.message || '';
+        const isHttpError = message.startsWith('Failed to fetch') || message.startsWith('Failed to post');
+        const isZodError = error?.name === 'ZodError';
+        const isAbortError = error?.name === 'AbortError';
+        const isNetworkError = message === 'Failed to fetch' || message.includes('NetworkError');
+
+        if (isHttpError || isZodError || isAbortError || isNetworkError) {
+          console.warn('Query Error (suppressed toast):', message);
+          return;
         }
+
+        console.error('Query Error:', error);
+        showToast.error('An unexpected data error occurred. Please try refreshing.');
       },
     }),
     defaultOptions: {

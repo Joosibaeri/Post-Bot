@@ -12,6 +12,9 @@ const customJestConfig = {
 
     // Use jsdom for testing React components
     testEnvironment: 'jest-environment-jsdom',
+    testEnvironmentOptions: {
+        customExportConditions: [''],
+    },
 
     // Module path aliases (match tsconfig paths)
     moduleNameMapper: {
@@ -30,6 +33,11 @@ const customJestConfig = {
         '<rootDir>/.next/',
     ],
 
+    // Transform these ESM dependencies inside node_modules
+    transformIgnorePatterns: [
+        '/node_modules/(?!(msw|@mswjs|until-async|is-node-process)/)',
+    ],
+
     // Coverage configuration
     collectCoverageFrom: [
         'src/**/*.{ts,tsx}',
@@ -39,4 +47,14 @@ const customJestConfig = {
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-module.exports = createJestConfig(customJestConfig);
+module.exports = async () => {
+    const nextJestConfig = await createJestConfig(customJestConfig)();
+    
+    // next/jest ignores transformIgnorePatterns in customJestConfig, so we manually override them here
+    nextJestConfig.transformIgnorePatterns = [
+        ...customJestConfig.transformIgnorePatterns,
+        ...nextJestConfig.transformIgnorePatterns.filter(pattern => pattern !== '/node_modules/')
+    ];
+    
+    return nextJestConfig;
+};

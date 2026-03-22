@@ -6,5 +6,15 @@
         "@next/next/no-img-element": "off",
         "react-hooks/exhaustive-deps": "warn",
         "jsx-a11y/role-supports-aria-props": "warn"
-    }
+    },
+    "overrides": [
+        {
+            "files": ["jest.setup.js", "jest.config.js"],
+            "parser": "espree",
+            "parserOptions": {
+                "ecmaVersion": 2022,
+                "sourceType": "script"
+            }
+        }
+    ]
 }

@@ -60,8 +60,8 @@ TWITTER_ACCESS_TOKEN_SECRET: str = os.getenv('TWITTER_ACCESS_TOKEN_SECRET', '')
 def validate_credentials(*, require_linkedin: bool = True) -> bool:
     """Validate that required credentials are set. Returns True if valid."""
     missing: List[str] = []
-    if not MISTRAL_API_KEY:
-        missing.append("MISTRAL_API_KEY")
+    if not MISTRAL_API_KEY and not GROQ_API_KEY:
+        missing.append("MISTRAL_API_KEY or GROQ_API_KEY (at least one AI provider required)")
     if not GITHUB_USERNAME:
         missing.append("GITHUB_USERNAME (or MY_GITHUB_USERNAME)")
     if require_linkedin:

@@ -2,6 +2,30 @@
 // Add custom jest matchers for DOM testing
 require('@testing-library/jest-dom');
 
+// MSW requires these globals to be available.
+const { TextEncoder, TextDecoder } = require('util');
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+
+const { ReadableStream, WritableStream, TransformStream } = require('stream/web');
+global.ReadableStream = ReadableStream;
+global.WritableStream = WritableStream;
+global.TransformStream = TransformStream;
+
+const { MessageChannel, MessagePort, BroadcastChannel } = require('worker_threads');
+global.MessageChannel = MessageChannel;
+global.MessagePort = MessagePort;
+global.BroadcastChannel = BroadcastChannel;
+
+// undici provides web-standard APIs that node 18+ has but jsdom doesn't expose globally by default.
+// It must be required AFTER TextDecoder is polyfilled.
+const { fetch, Headers, Request, Response, FormData } = require('undici');
+global.fetch = fetch;
+global.Headers = Headers;
+global.Request = Request;
+global.Response = Response;
+global.FormData = FormData;
+
 // Mock next/router
 jest.mock('next/router', () => ({
     useRouter: () => ({
@@ -32,6 +56,7 @@ jest.mock('@clerk/nextjs', () => ({
     }),
     useAuth: () => ({
         userId: 'test_user_id',
+        getToken: () => Promise.resolve('mock_token'),
         isLoaded: true,
         isSignedIn: true,
     }),
@@ -55,10 +80,8 @@ Object.defineProperty(window, 'matchMedia', {
     })),
 });
 
-// Mock fetch globally
-global.fetch = jest.fn(() =>
-    Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({}),
-    })
-);
+const { server } = require('./src/mocks/server');
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());

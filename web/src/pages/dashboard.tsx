@@ -7,24 +7,27 @@ import SEOHead from '@/components/SEOHead';
 import ThemeToggle from '@/components/ThemeToggle';
 import { StatsOverview } from '@/components/dashboard/StatsOverview';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
-import { PostEditor } from '@/components/dashboard/PostEditor';
-import { PostPreview } from '@/components/dashboard/PostPreview';
-import { PostHistory, Post } from '@/components/dashboard/PostHistory';
+import { PostEditor } from '@/features/post-generation/components/PostEditor';
+import { PostPreview } from '@/features/post-generation/components/PostPreview';
+import type { Post } from '@/features/history/components/PostHistory';
 import Analytics from '@/components/dashboard/Analytics';
-import ScheduleModal from '@/components/modals/ScheduleModal';
-import TemplateLibrary from '@/components/dashboard/TemplateLibrary';
 import { BotModePanel } from '@/components/dashboard/BotModePanel';
 import { AIStatusMessage, useAIStatus } from '@/components/ui/AIStatusMessage';
-import { ImageSelector } from '@/components/dashboard/ImageSelector';
 import { GitHubActivity, Template, PostContext } from '@/types/dashboard';
 import UsageCounter from '@/components/ui/UsageCounter';
 import FeatureGate from '@/components/ui/FeatureGate';
 import TierBadge from '@/components/ui/TierBadge';
-import WaitlistModal from '@/components/modals/WaitlistModal';
-import HistoryModal from '@/components/modals/HistoryModal';
-import FeedbackModal from '@/components/modals/FeedbackModal';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton';
+import dynamic from 'next/dynamic';
+import { useDraftStore } from '@/store/useDraftStore';
+
+const PostHistory = dynamic(() => import('@/features/history/components/PostHistory').then(mod => mod.PostHistory));
+const ScheduleModal = dynamic(() => import('@/components/modals/ScheduleModal'));
+const TemplateLibrary = dynamic(() => import('@/components/dashboard/TemplateLibrary'));
+const WaitlistModal = dynamic(() => import('@/components/modals/WaitlistModal'));
+const HistoryModal = dynamic(() => import('@/components/modals/HistoryModal'));
+import { FeedbackManager } from '@/components/dashboard/FeedbackManager';
 
 // Usage data type
 interface UsageData {
@@ -79,17 +82,15 @@ export default function Dashboard() {
   const usageData = usage;
 
   // State for post generation
-  const [context, setContext] = useState<PostContext>({
-    type: 'push',
-    commits: 3,
-    repo: 'my-project',
-    full_repo: 'username/my-project',
-    date: '2 hours ago',
-  });
-  const [preview, setPreview] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState('');
+  const { 
+    context, setContext, 
+    preview, setPreview, 
+    isEditing, setIsEditing, 
+    loading, setLoading, 
+    status, setStatus,
+    selectedImage: manualSelectedImage,
+    setSelectedImage: setManualSelectedImage
+  } = useDraftStore();
   const ai = useAIStatus();
   const firstName = user?.firstName || 'there';
 
@@ -101,7 +102,7 @@ export default function Dashboard() {
     if (firstActivityContext && context.repo === 'my-project') {
       setContext(firstActivityContext);
     }
-  }, [firstActivityContext, context.repo]);
+  }, [firstActivityContext, context.repo, setContext]);
 
 
   // Modals
@@ -112,19 +113,12 @@ export default function Dashboard() {
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [showWaitlist, setShowWaitlist] = useState(false);
 
-  // Feedback modal state
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [feedbackAutoTriggered, setFeedbackAutoTriggered] = useState(false);
+  // Session tracking
   const [sessionPublishCount, setSessionPublishCount] = useState(0);
 
   // Mobile menu state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Manual mode image state
-  const [manualSelectedImage, setManualSelectedImage] = useState<string | null>(null);
-  const [manualImages, setManualImages] = useState<Array<{ id: string, url: string, thumb: string, description: string, photographer: string, download_url: string }>>([]);
-  const [showImageSelector, setShowImageSelector] = useState(false);
-  const [loadingImages, setLoadingImages] = useState(false);
 
   // Scheduled posts state
   const [scheduledPosts, setScheduledPosts] = useState<Array<{ id: number, post_content: string, image_url?: string, scheduled_time: number, status: string, error_message?: string, created_at: number, published_at?: number }>>([]);
@@ -164,7 +158,7 @@ export default function Dashboard() {
     if (isLoaded && !isSignedIn) {
       router.push('/sign-in');
     }
-  }, [router.isReady, isTestMode, isLoaded, isSignedIn]);
+  }, [router, router.isReady, isTestMode, isLoaded, isSignedIn]);
 
   const checkAuthentication = useCallback(async (uid: string) => {
     try {
@@ -289,17 +283,7 @@ export default function Dashboard() {
 
         // Auto-trigger feedback popup after 2nd successful publish
         if (!testMode) {
-          const newCount = sessionPublishCount + 1;
-          setSessionPublishCount(newCount);
-
-          // Show feedback popup on 2nd publish (if not dismissed before)
-          const hasSubmitted = localStorage.getItem('hasSubmittedFeedback') === 'true';
-          const hasDismissed = localStorage.getItem('feedbackDismissed') === 'true';
-
-          if (newCount === 2 && !hasSubmitted && !hasDismissed) {
-            setFeedbackAutoTriggered(true);
-            setShowFeedback(true);
-          }
+          setSessionPublishCount(prev => prev + 1);
 
           // Refresh stats to update "Published" card immediately
           await refetchStats();
@@ -492,19 +476,7 @@ export default function Dashboard() {
             </button>
 
             {/* Give Feedback Button */}
-            <button
-              onClick={() => {
-                setFeedbackAutoTriggered(false);
-                setShowFeedback(true);
-              }}
-              className="px-4 py-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-2 border-purple-300 dark:border-purple-500/30 text-purple-700 dark:text-purple-300 rounded-lg hover:from-purple-500/20 hover:to-pink-500/20 transition-all flex items-center"
-              aria-label="Give feedback"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              Feedback
-            </button>
+            <FeedbackManager publishCount={sessionPublishCount} userId={userId} getToken={getToken} />
           </div>
         </div>
 
@@ -682,37 +654,9 @@ export default function Dashboard() {
           {/* Main Content - Post Editor & Preview */}
           <div className="lg:col-span-2 space-y-8">
             <PostEditor
-              context={context}
-              setContext={setContext}
               onGenerate={handleGeneratePreview}
               onPublish={handlePublish}
-              onWriteManually={() => {
-                setPreview('');
-                setIsEditing(true);
-                showToast.success('Started blank post');
-              }}
-              loading={loading}
-              status={status}
-              hasPreview={!!preview}
               tier={usage?.tier ?? 'free'}
-              selectedImage={manualSelectedImage}
-              onImageClick={async () => {
-                setLoadingImages(true);
-                setShowImageSelector(true);
-                try {
-                  const response = await api.post('/api/image/preview', {
-                    post_content: preview || 'coding developer tech',
-                    count: 6
-                  });
-                  setManualImages(response.data.images || []);
-                } catch (error) {
-                  showToast.error('Failed to load images');
-                  setManualImages([]);
-                } finally {
-                  setLoadingImages(false);
-                }
-              }}
-              onRemoveImage={() => setManualSelectedImage(null)}
             />
 
             {/* AI Status Messages — right below the generate button */}
@@ -746,50 +690,6 @@ export default function Dashboard() {
         loading={isLoadingPosts}
       />
 
-      {/* Feedback Modal */}
-      <FeedbackModal
-        isOpen={showFeedback}
-        onClose={() => {
-          setShowFeedback(false);
-          // Remember dismissal if auto-triggered
-          if (feedbackAutoTriggered) {
-            localStorage.setItem('feedbackDismissed', 'true');
-          }
-          setFeedbackAutoTriggered(false);
-        }}
-        userId={userId}
-        getToken={getToken}
-        autoTriggered={feedbackAutoTriggered}
-        autoDismissSeconds={35}
-      />
-
-      {/* Manual Mode Image Selector */}
-      {showImageSelector && (
-        <ImageSelector
-          images={manualImages}
-          selectedImage={manualSelectedImage}
-          onSelect={(imageUrl) => {
-            setManualSelectedImage(imageUrl);
-            setShowImageSelector(false);
-          }}
-          onClose={() => setShowImageSelector(false)}
-          loading={loadingImages}
-          onRefresh={async () => {
-            setLoadingImages(true);
-            try {
-              const response = await api.post('/api/image/preview', {
-                post_content: preview || 'coding developer tech',
-                count: 6
-              });
-              setManualImages(response.data.images || []);
-            } catch (error) {
-              showToast.error('Failed to refresh images');
-            } finally {
-              setLoadingImages(false);
-            }
-          }}
-        />
-      )}
     </div>
   );
 }

@@ -11,7 +11,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@clerk/nextjs';
 import { api } from '@/lib/api';
 import type { GitHubActivity, Template, PostContext, DashboardStats, UsageData } from '@/types/dashboard';
-import type { Post } from '@/components/dashboard/PostHistory';
+import type { Post } from '@/features/history/components/PostHistory';
+import * as schemas from '@/lib/schemas';
 
 // ============================================================================
 // FETCH FUNCTIONS
@@ -22,7 +23,7 @@ async function fetchStats(userId: string, getToken: () => Promise<string | null>
     const response = await api.get(`/api/stats/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
     });
-    return response.data;
+    return schemas.StatsResponseSchema.parse(response.data);
 }
 
 async function fetchPostHistory(userId: string, getToken: () => Promise<string | null>, limit = 10): Promise<Post[]> {
@@ -30,7 +31,8 @@ async function fetchPostHistory(userId: string, getToken: () => Promise<string |
     const response = await api.get(`/api/posts/${userId}?limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` }
     });
-    return response.data.posts || [];
+    const parsed = schemas.PostsResponseSchema.parse(response.data);
+    return parsed.posts as unknown as Post[];
 }
 
 async function fetchUsage(userId: string, getToken: () => Promise<string | null>): Promise<UsageData | null> {
@@ -40,19 +42,21 @@ async function fetchUsage(userId: string, getToken: () => Promise<string | null>
         params: { timezone },
         headers: { Authorization: `Bearer ${token}` }
     });
-    // Handle both { usage: {...} } and direct response formats
-    return response.data?.usage || response.data || null;
+    const parsed = schemas.UsageResponseSchema.parse(response.data);
+    return 'usage' in parsed ? parsed.usage : parsed;
 }
 
 async function fetchTemplates(): Promise<Template[]> {
     const response = await api.get('/api/templates');
-    return response.data.templates || [];
+    const parsed = schemas.TemplatesResponseSchema.parse(response.data);
+    return parsed.templates;
 }
 
 async function fetchGitHubActivity(username: string): Promise<GitHubActivity[]> {
     if (!username) return [];
     const response = await api.get(`/api/github/activity/${username}`);
-    return response.data.activities || [];
+    const parsed = schemas.GitHubActivityResponseSchema.parse(response.data);
+    return parsed.activities as GitHubActivity[];
 }
 
 async function fetchUserSettings(userId: string, getToken: () => Promise<string | null>): Promise<{ github_username?: string; persona?: Record<string, any> }> {
@@ -60,7 +64,7 @@ async function fetchUserSettings(userId: string, getToken: () => Promise<string 
     const response = await api.get(`/api/settings/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
     });
-    return response.data || {};
+    return schemas.UserSettingsResponseSchema.parse(response.data);
 }
 
 // ============================================================================
