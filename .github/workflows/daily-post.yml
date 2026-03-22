@@ -1,8 +1,8 @@
-name: Daily LinkedIn Post
+name: Daily Social Media Post
 
 on:
   schedule:
-    - cron: '0 9 * * *'
+    - cron: '0 8 * * 2-4'
   workflow_dispatch:
 
 jobs:
