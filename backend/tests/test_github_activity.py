@@ -20,7 +20,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 class TestGetUserActivity:
     """Tests for fetching user activity from GitHub API."""
-    
+
+    def setup_method(self):
+        """Clear the GitHub activity cache before each test to prevent cross-test contamination."""
+        from services.github_activity import clear_github_cache
+        clear_github_cache()
+
     @patch('services.github_activity.requests.get')
     def test_get_user_activity_success(self, mock_get):
         """Should return parsed activities on successful API call."""
