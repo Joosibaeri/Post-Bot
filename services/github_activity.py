@@ -104,8 +104,13 @@ def get_user_activity(username: str, limit: int = 10, token: str = None):
         
         # Rate Limit handling
         if response.status_code == 403:
-            logger.warning(f"GitHub API Rate Limit Exceeded for {username}. Headers: {response.headers}")
-            return []
+            try:
+                message = response.json().get('message', '')
+            except ValueError:
+                message = ''
+            if 'rate limit' in message.lower():
+                logger.warning(f"GitHub API Rate Limit Exceeded for {username}. Headers: {response.headers}")
+                return []
             
         if response.status_code != 200:
             logger.error(f"GitHub API Error {response.status_code}: {response.text}")
