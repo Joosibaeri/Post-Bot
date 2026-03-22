@@ -44,7 +44,7 @@ ALLOWED_ACTIVITY_TYPES = Literal[
     "release", "ReleaseEvent",
     "fork", "ForkEvent",
     "star", "WatchEvent",
-    "generic", "milestone",
+    "generic", "milestone", "repurpose",
 ]
 
 # Allowed post generation styles
@@ -61,7 +61,7 @@ ALLOWED_STYLES = Literal[
 ALLOWED_POST_STATUSES = Literal["draft", "published", "scheduled", "failed"]
 
 # Allowed post types
-ALLOWED_POST_TYPES = Literal["push", "pr", "commit", "new_repo", "generic", "mixed", "manual"]
+ALLOWED_POST_TYPES = Literal["push", "pr", "commit", "new_repo", "generic", "mixed", "manual", "repurpose"]
 
 
 # =============================================================================
@@ -121,6 +121,11 @@ class PostContext(BaseModel):
         default=None,
         max_length=1000,
         description="Additional description or context"
+    )
+    url: Optional[str] = Field(
+        default=None,
+        max_length=MAX_URL_LENGTH,
+        description="Source URL for repurposed content"
     )
     
     @field_validator('repo', 'full_repo', 'branch', mode='before')
@@ -212,6 +217,21 @@ class GenerateRequest(BaseModel):
         default=None,
         max_length=MAX_USER_ID_LENGTH,
         description="Optional user ID for personalization"
+    )
+
+class RepurposeRequest(UserIdMixin):
+    """Request model for repurposing URL content."""
+    model_config = ConfigDict(extra="forbid")
+    
+    url: str = Field(
+        min_length=1,
+        max_length=MAX_URL_LENGTH,
+        description="The URL to scrape and repurpose"
+    )
+    model: str = Field(
+        default="groq",
+        max_length=64,
+        description="The AI model to use (e.g., groq, openai)"
     )
 
 

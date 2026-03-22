@@ -772,6 +772,32 @@ ENERGY: {vibe}
 BE UNIQUE. This is YOUR story. Tell it your way.
 """
         
+    elif activity_type == 'repurpose':
+        url = sanitize_prompt_input(context_data.get('url', ''), max_length=200)
+        content = sanitize_prompt_input(context_data.get('content', ''), max_length=8000)
+        
+        return f"""
+Create 3 diverse LinkedIn posts summarizing or expanding on this content.
+
+SOURCE URL: {url}
+
+CONTENT TO REPURPOSE:
+{content}
+
+YOUR CREATIVE DIRECTION: Write 3 distinctly different posts based on the text.
+- Post 1: A high-level summary with key takeaways.
+- Post 2: A deep dive into one specific interesting point.
+- Post 3: A thought-provoking question or hot take based on the content.
+
+CRITICAL FORMAT REQUIREMENT:
+You MUST return EXACTLY a valid JSON array containing 3 strings. Do not include markdown code blocks (like ```json). Just the raw JSON array.
+[
+  "Post 1 content here...",
+  "Post 2 content here...",
+  "Post 3 content here..."
+]
+"""
+        
     else:
         # Generic or manual context
         topic = sanitize_prompt_input(context_data.get('topic', 'Coding & Development'), max_length=300)

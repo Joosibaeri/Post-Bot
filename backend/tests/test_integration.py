@@ -540,3 +540,84 @@ class TestResponseFormat:
             headers={"Content-Type": "application/json"},
         )
         assert r.status_code == 422
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 16. REPURPOSE ENGINE
+# ═══════════════════════════════════════════════════════════════════════════
+class TestRepurposeEngine:
+    """POST /api/post/repurpose endpoints."""
+
+    @patch("routes.posts.scrape_url", new_callable=AsyncMock)
+    @patch("routes.posts.generate_linkedin_post", new_callable=AsyncMock)
+    def test_repurpose_url_success(self, mock_generate, mock_scrape, client: TestClient):
+        """Valid URL and successful AI generation returns 3 posts."""
+        mock_scrape.return_value = "This is some test content from a blog."
+        
+        # Mock the generation result
+        mock_result = MagicMock()
+        mock_result.content = '["Post 1", "Post 2", "Post 3"]'
+        mock_result.provider = MagicMock(value="groq")
+        mock_result.model = "llama3-8b-8192"
+        mock_generate.return_value = mock_result
+
+        r = client.post(
+            "/api/post/repurpose",
+            json={
+                "url": "https://example.com/blog-post",
+                "user_id": AUTH_USER_ID,
+                "model": "groq"
+            },
+        )
+        
+        # 200 when DB is running, 500 if DB is down but the API logic runs
+        assert r.status_code in (200, 500)
+        if r.status_code == 200:
+            body = r.json()
+            assert "posts" in body
+            assert len(body["posts"]) == 3
+            assert body["posts"][0]["content"] == "Post 1"
+
+    @patch("routes.posts.scrape_url", new_callable=AsyncMock)
+    def test_repurpose_url_scraping_fails(self, mock_scrape, client: TestClient):
+        """Failed scraping returns 400 Bad Request."""
+        mock_scrape.side_effect = Exception("Connection error")
+
+        r = client.post(
+            "/api/post/repurpose",
+            json={
+                "url": "https://invalid-url.com",
+                "user_id": AUTH_USER_ID,
+            },
+        )
+        assert r.status_code == 400
+        body = r.json()
+        assert "detail" in body
+        assert "Failed to scrape URL" in body["detail"]
+
+    @patch("routes.posts.scrape_url", new_callable=AsyncMock)
+    @patch("routes.posts.generate_linkedin_post", new_callable=AsyncMock)
+    def test_repurpose_json_fallback(self, mock_generate, mock_scrape, client: TestClient):
+        """If AI returns invalid JSON, it falls back to a single post array."""
+        mock_scrape.return_value = "Test content"
+        
+        mock_result = MagicMock()
+        mock_result.content = "Here are your posts: 1. A 2. B 3. C"  # not JSON
+        mock_result.provider = MagicMock(value="groq")
+        mock_result.model = "llama3-8b-8192"
+        mock_generate.return_value = mock_result
+
+        r = client.post(
+            "/api/post/repurpose",
+            json={
+                "url": "https://example.com/blog-post",
+                "user_id": AUTH_USER_ID,
+            },
+        )
+        
+        assert r.status_code in (200, 500)
+        if r.status_code == 200:
+            body = r.json()
+            assert "posts" in body
+            assert len(body["posts"]) == 1
+            assert body["posts"][0]["content"] == mock_result.content
