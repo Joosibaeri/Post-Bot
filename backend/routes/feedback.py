@@ -70,7 +70,7 @@ async def submit_feedback(req: FeedbackRequest):
             return {"success": False, "error": "Rating must be between 1 and 5"}
         
         # Save to database
-        result = save_feedback(
+        result = await save_feedback(
             user_id=req.user_id,
             rating=req.rating,
             liked=req.liked,
@@ -105,9 +105,13 @@ Suggestions: {req.suggestions or 'None'}
 
 
 @router.get("/status/{user_id}")
-def get_feedback_status(user_id: str):
+async def get_feedback_status(user_id: str):
     """Check if user has already submitted feedback."""
     if not has_user_submitted_feedback:
         return {"has_submitted": False}
     
-    return {"has_submitted": has_user_submitted_feedback(user_id)}
+    try:
+        return {"has_submitted": await has_user_submitted_feedback(user_id)}
+    except Exception as e:
+        print(f"Error checking feedback status: {e}")
+        return {"has_submitted": False}

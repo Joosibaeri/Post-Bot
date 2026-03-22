@@ -2,6 +2,16 @@
 // Add custom jest matchers for DOM testing
 require('@testing-library/jest-dom');
 
+// Polyfill structuredClone for jsdom
+if (typeof globalThis.structuredClone === 'undefined') {
+  globalThis.structuredClone = (val) => JSON.parse(JSON.stringify(val));
+}
+
+// Polyfill performance.markResourceTiming for jsdom (not available in all environments)
+if (typeof performance !== 'undefined' && !performance.markResourceTiming) {
+  performance.markResourceTiming = () => {};
+}
+
 // MSW requires these globals to be available.
 const { TextEncoder, TextDecoder } = require('util');
 global.TextEncoder = TextEncoder;
