@@ -27,6 +27,7 @@ const ScheduleModal = dynamic(() => import('@/components/modals/ScheduleModal'))
 const TemplateLibrary = dynamic(() => import('@/components/dashboard/TemplateLibrary'));
 const WaitlistModal = dynamic(() => import('@/components/modals/WaitlistModal'));
 const HistoryModal = dynamic(() => import('@/components/modals/HistoryModal'));
+const FeedbackModal = dynamic(() => import('@/components/modals/FeedbackModal'));
 import { FeedbackManager } from '@/components/dashboard/FeedbackManager';
 
 // Usage data type
@@ -112,6 +113,7 @@ export default function Dashboard() {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [showWaitlist, setShowWaitlist] = useState(false);
+  const [showBugModal, setShowBugModal] = useState(false);
 
   // Session tracking
   const [sessionPublishCount, setSessionPublishCount] = useState(0);
@@ -433,6 +435,16 @@ export default function Dashboard() {
                 </svg>
                 Settings
               </button>
+              <button
+                onClick={() => setShowBugModal(true)}
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition-all flex items-center"
+                aria-label="Report a bug"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2m-9 5h12M4 10h16M7 21h10a2 2 0 002-2v-7H5v7a2 2 0 002 2z" />
+                </svg>
+                Report a Bug
+              </button>
               <div className="ml-2 border-l border-gray-200 dark:border-white/10 pl-3 flex items-center gap-2">
                 <TierBadge tier={usage?.tier || 'free'} onClick={() => setShowWaitlist(true)} />
                 <ThemeToggle />
@@ -460,6 +472,16 @@ export default function Dashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                   Settings
+                </button>
+                <button
+                  onClick={() => { setShowBugModal(true); setMobileMenuOpen(false); }}
+                  className="w-full text-left px-4 py-3 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition-all flex items-center"
+                  aria-label="Report a bug"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2m-9 5h12M4 10h16M7 21h10a2 2 0 002-2v-7H5v7a2 2 0 002 2z" />
+                  </svg>
+                  Report a Bug
                 </button>
                 <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-white/10 mt-2">
                   <div className="flex items-center gap-2">
@@ -693,6 +715,13 @@ export default function Dashboard() {
 
       {/* Waitlist Modal for Pro tier */}
       <WaitlistModal isOpen={showWaitlist} onClose={() => setShowWaitlist(false)} />
+
+      {/* Report Bug Modal */}
+      <FeedbackModal
+        isOpen={showBugModal}
+        onClose={() => setShowBugModal(false)}
+        defaultEmail={user?.primaryEmailAddress?.emailAddress || ''}
+      />
 
       {/* History Modal */}
       <HistoryModal
