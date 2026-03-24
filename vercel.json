@@ -12,7 +12,9 @@
     "CLERK_SECRET_KEY": "@clerk_secret_key",
     "NEXT_PUBLIC_REDIRECT_URI": "@next_public_redirect_uri",
     "NEXT_PUBLIC_SITE_URL": "@next_public_site_url",
-    "NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY": "@paystack_public_key"
+    "NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY": "@paystack_public_key",
+    "NEXT_PUBLIC_PAYSTACK_MONTHLY_CHECKOUT_URL": "@paystack_monthly_checkout_url",
+    "NEXT_PUBLIC_PAYSTACK_YEARLY_CHECKOUT_URL": "@paystack_yearly_checkout_url"
   },
   "installCommand": "cd web && npm ci",
   "buildCommand": "cd web && npm run build",

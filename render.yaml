@@ -289,3 +289,7 @@ services:
       # Paystack (for client-side checkout, if used)
       - key: NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
         sync: false
+      - key: NEXT_PUBLIC_PAYSTACK_MONTHLY_CHECKOUT_URL
+        sync: false
+      - key: NEXT_PUBLIC_PAYSTACK_YEARLY_CHECKOUT_URL
+        sync: false
