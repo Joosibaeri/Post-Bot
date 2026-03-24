@@ -1,0 +1,848 @@
+
+{
+  "header": {
+    "reportVersion": 5,
+    "event": "Allocation failed - JavaScript heap out of memory",
+    "trigger": "OOMError",
+    "filename": "report.20260322.211948.2688.0.001.json",
+    "dumpEventTime": "2026-03-22T21:19:48Z",
+    "dumpEventTimeStamp": "1774214388624",
+    "processId": 2688,
+    "threadId": 0,
+    "cwd": "C:\\Users\\Lois Adu Yeboah\\Desktop\\PostBot",
+    "commandLine": [
+      "C:\\Users\\Lois Adu Yeboah\\AppData\\Roaming\\npm\\node_modules\\@github\\copilot\\node_modules\\@github\\copilot-win32-x64\\copilot.exe",
+      "--no-warnings",
+      "C:\\Users\\Lois Adu Yeboah\\AppData\\Roaming\\npm\\node_modules\\@github\\copilot\\node_modules\\@github\\copilot-win32-x64\\copilot.exe"
+    ],
+    "nodejsVersion": "v24.11.1",
+    "wordSize": 64,
+    "arch": "x64",
+    "platform": "win32",
+    "componentVersions": {
+      "acorn": "8.15.0",
+      "ada": "3.3.0",
+      "amaro": "1.1.4",
+      "ares": "1.34.5",
+      "brotli": "1.1.0",
+      "cjs_module_lexer": "2.1.0",
+      "cldr": "47.0",
+      "icu": "77.1",
+      "llhttp": "9.3.0",
+      "modules": "137",
+      "napi": "10",
+      "nbytes": "0.1.1",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.66.0",
+      "node": "24.11.1",
+      "openssl": "3.5.4",
+      "simdjson": "4.0.7",
+      "simdutf": "6.4.0",
+      "sqlite": "3.50.4",
+      "tz": "2025b",
+      "undici": "7.16.0",
+      "unicode": "16.0",
+      "uv": "1.51.0",
+      "uvwasi": "0.0.23",
+      "v8": "13.6.233.10-node.28",
+      "zlib": "1.3.1-470d3a2",
+      "zstd": "1.5.7"
+    },
+    "release": {
+      "name": "node",
+      "lts": "Krypton",
+      "headersUrl": "https://nodejs.org/download/release/v24.11.1/node-v24.11.1-headers.tar.gz",
+      "sourceUrl": "https://nodejs.org/download/release/v24.11.1/node-v24.11.1.tar.gz",
+      "libUrl": "https://nodejs.org/download/release/v24.11.1/win-x64/node.lib"
+    },
+    "osName": "Windows_NT",
+    "osRelease": "10.0.26200",
+    "osVersion": "Windows 11 Home",
+    "osMachine": "x86_64",
+    "cpus": [
+      {
+        "model": "11th Gen Intel(R) Core(TM) i3-1115G4 @ 3.00GHz",
+        "speed": 2995,
+        "user": 4646593,
+        "nice": 0,
+        "sys": 6258203,
+        "idle": 60552375,
+        "irq": 530015
+      },
+      {
+        "model": "11th Gen Intel(R) Core(TM) i3-1115G4 @ 3.00GHz",
+        "speed": 2995,
+        "user": 4623953,
+        "nice": 0,
+        "sys": 5376734,
+        "idle": 61456468,
+        "irq": 271093
+      },
+      {
+        "model": "11th Gen Intel(R) Core(TM) i3-1115G4 @ 3.00GHz",
+        "speed": 2995,
+        "user": 5127125,
+        "nice": 0,
+        "sys": 5595250,
+        "idle": 60734781,
+        "irq": 295062
+      },
+      {
+        "model": "11th Gen Intel(R) Core(TM) i3-1115G4 @ 3.00GHz",
+        "speed": 2995,
+        "user": 5073593,
+        "nice": 0,
+        "sys": 5248421,
+        "idle": 61135140,
+        "irq": 240953
+      }
+    ],
+    "networkInterfaces": [
+      {
+        "name": "Wi-Fi",
+        "internal": false,
+        "mac": "10:68:38:20:09:29",
+        "address": "fe80::6c0c:3637:ead7:9926",
+        "netmask": "ffff:ffff:ffff:ffff::",
+        "family": "IPv6",
+        "scopeid": 10
+      },
+      {
+        "name": "Wi-Fi",
+        "internal": false,
+        "mac": "10:68:38:20:09:29",
+        "address": "172.20.10.2",
+        "netmask": "255.255.255.240",
+        "family": "IPv4"
+      },
+      {
+        "name": "Loopback Pseudo-Interface 1",
+        "internal": true,
+        "mac": "00:00:00:00:00:00",
+        "address": "::1",
+        "netmask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+        "family": "IPv6",
+        "scopeid": 0
+      },
+      {
+        "name": "Loopback Pseudo-Interface 1",
+        "internal": true,
+        "mac": "00:00:00:00:00:00",
+        "address": "127.0.0.1",
+        "netmask": "255.0.0.0",
+        "family": "IPv4"
+      }
+    ],
+    "host": "LAPTOP-UQSBCQKR"
+  },
+  "javascriptStack": {
+    "message": "No stack.",
+    "stack": [
+      "Unavailable."
+    ],
+    "errorProperties": {
+    }
+  },
+  "javascriptHeap": {
+    "totalMemory": 241647616,
+    "executableMemory": 6512640,
+    "totalCommittedMemory": 241647616,
+    "availableMemory": 2221114056,
+    "totalGlobalHandlesMemory": 790600,
+    "usedGlobalHandlesMemory": 17760,
+    "usedMemory": 171212168,
+    "memoryLimit": 2348810240,
+    "mallocedMemory": 4227120,
+    "externalMemory": 21503549,
+    "peakMallocedMemory": 78615320,
+    "nativeContextCount": 3,
+    "detachedContextCount": 0,
+    "doesZapGarbage": 0,
+    "heapSpaces": {
+      "read_only_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "new_space": {
+        "memorySize": 67108864,
+        "committedMemory": 67108864,
+        "capacity": 67104768,
+        "used": 27969688,
+        "available": 39135080
+      },
+      "old_space": {
+        "memorySize": 104357888,
+        "committedMemory": 104357888,
+        "capacity": 81962488,
+        "used": 76396648,
+        "available": 5565840
+      },
+      "code_space": {
+        "memorySize": 5505024,
+        "committedMemory": 5505024,
+        "capacity": 5504352,
+        "used": 4842240,
+        "available": 662112
+      },
+      "shared_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "trusted_space": {
+        "memorySize": 9203712,
+        "committedMemory": 9203712,
+        "capacity": 8077368,
+        "used": 6597832,
+        "available": 1479536
+      },
+      "shared_trusted_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "new_large_object_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 67108864,
+        "used": 0,
+        "available": 67108864
+      },
+      "large_object_space": {
+        "memorySize": 54272000,
+        "committedMemory": 54272000,
+        "capacity": 54211464,
+        "used": 54211464,
+        "available": 0
+      },
+      "code_large_object_space": {
+        "memorySize": 1007616,
+        "committedMemory": 1007616,
+        "capacity": 1004224,
+        "used": 1004224,
+        "available": 0
+      },
+      "shared_large_object_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "shared_trusted_large_object_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "trusted_large_object_space": {
+        "memorySize": 192512,
+        "committedMemory": 192512,
+        "capacity": 190072,
+        "used": 190072,
+        "available": 0
+      }
+    }
+  },
+  "nativeStack": [
+    {
+      "pc": "0x00007ff6d7f61427",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d7f5e6ac",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d7f633c8",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8029737",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8c6da77",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8a6e327",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8a06d4b",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8a2f0ba",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8a70706",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8a6fd56",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8a80ce2",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8a8080b",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d9ee89ad",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8a6bdf0",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8a8667a",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8a92458",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8aa9dfc",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d8aa9d95",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d877cddb",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d877c65d",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d877d868",
+      "symbol": ""
+    },
+    {
+      "pc": "0x00007ff6d866fbe7",
+      "symbol": ""
+    },
+    {
+      "pc": "0x000001b7ea6f733a",
+      "symbol": ""
+    }
+  ],
+  "resourceUsage": {
+    "free_memory": 665899008,
+    "total_memory": 8269565952,
+    "rss": 264069120,
+    "available_memory": 665894912,
+    "userCpuSeconds": 4.39,
+    "kernelCpuSeconds": 1.687,
+    "cpuConsumptionPercent": 6.26495,
+    "userCpuConsumptionPercent": 4.52577,
+    "kernelCpuConsumptionPercent": 1.73918,
+    "maxRss": 277655552,
+    "pageFaults": {
+      "IORequired": 281421,
+      "IONotRequired": 0
+    },
+    "fsActivity": {
+      "reads": 164,
+      "writes": 31
+    }
+  },
+  "uvthreadResourceUsage": {
+    "userCpuSeconds": 3.203,
+    "kernelCpuSeconds": 1.328,
+    "cpuConsumptionPercent": 4.67113,
+    "userCpuConsumptionPercent": 3.30206,
+    "kernelCpuConsumptionPercent": 1.36907,
+    "fsActivity": {
+      "reads": 0,
+      "writes": 0
+    }
+  },
+  "libuv": [
+    {
+      "type": "async",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7b059bc50"
+    },
+    {
+      "type": "async",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x00007ff6dd1e1218"
+    },
+    {
+      "type": "timer",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001b7b201c530",
+      "repeat": 0,
+      "firesInMsFromNow": -28,
+      "expired": true
+    },
+    {
+      "type": "check",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7b201c5d0"
+    },
+    {
+      "type": "idle",
+      "is_active": false,
+      "is_referenced": true,
+      "address": "0x000001b7b201c648"
+    },
+    {
+      "type": "prepare",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7b201c6c0"
+    },
+    {
+      "type": "check",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7b201c738"
+    },
+    {
+      "type": "async",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7b201c7b0"
+    },
+    {
+      "type": "tty",
+      "is_active": false,
+      "is_referenced": true,
+      "address": "0x000001b7ea8bfed0",
+      "width": 120,
+      "height": 30,
+      "writeQueueSize": 0,
+      "readable": false,
+      "writable": true
+    },
+    {
+      "type": "signal",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7b2034c20",
+      "signum": 28,
+      "signal": "SIGWINCH"
+    },
+    {
+      "type": "tty",
+      "is_active": false,
+      "is_referenced": true,
+      "address": "0x000001b7f0a080d0",
+      "width": 120,
+      "height": 30,
+      "writeQueueSize": 0,
+      "readable": false,
+      "writable": true
+    },
+    {
+      "type": "tty",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001b7eaac5dc0",
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": false
+    },
+    {
+      "type": "signal",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7b2034a90",
+      "signum": 15,
+      "signal": "SIGTERM"
+    },
+    {
+      "type": "signal",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7b20345e0",
+      "signum": 2,
+      "signal": "SIGINT"
+    },
+    {
+      "type": "signal",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7b2034900",
+      "signum": 1,
+      "signal": "SIGHUP"
+    },
+    {
+      "type": "signal",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7f00ec4a0",
+      "signum": 3,
+      "signal": "SIGQUIT"
+    },
+    {
+      "type": "tcp",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7f0144a00",
+      "localEndpoint": {
+        "host": "LAPTOP-UQSBCQKR",
+        "ip4": "172.20.10.2",
+        "port": 57052
+      },
+      "remoteEndpoint": {
+        "host": "lb-140-82-114-22-iad.github.com",
+        "ip4": "140.82.114.22",
+        "port": 443
+      },
+      "sendBufferSize": 65536,
+      "recvBufferSize": 65536,
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "signal",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7f00ed120",
+      "signum": 22,
+      "signal": "SIGABRT"
+    },
+    {
+      "type": "fs_event",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7f00ed760",
+      "filename": "\\\\?\\C:\\Users\\Lois Adu Yeboah\\.copilot\\session-state\\8e307a57-a308-4dd3-b8a2-195dd4846953\\research"
+    },
+    {
+      "type": "tcp",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7f0144e20",
+      "localEndpoint": {
+        "host": "LAPTOP-UQSBCQKR",
+        "ip4": "172.20.10.2",
+        "port": 57053
+      },
+      "remoteEndpoint": {
+        "host": "lb-140-82-114-22-iad.github.com",
+        "ip4": "140.82.114.22",
+        "port": 443
+      },
+      "sendBufferSize": 65536,
+      "recvBufferSize": 65536,
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "tcp",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7f0143fb0",
+      "localEndpoint": {
+        "host": "LAPTOP-UQSBCQKR",
+        "ip4": "172.20.10.2",
+        "port": 57054
+      },
+      "remoteEndpoint": {
+        "host": "lb-140-82-114-22-iad.github.com",
+        "ip4": "140.82.114.22",
+        "port": 443
+      },
+      "sendBufferSize": 65536,
+      "recvBufferSize": 65536,
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "tcp",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7f0715470",
+      "localEndpoint": {
+        "host": "LAPTOP-UQSBCQKR",
+        "ip4": "172.20.10.2",
+        "port": 57056
+      },
+      "remoteEndpoint": {
+        "host": "lb-140-82-114-22-iad.github.com",
+        "ip4": "140.82.114.22",
+        "port": 443
+      },
+      "sendBufferSize": 65536,
+      "recvBufferSize": 65536,
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "fs_event",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001b7f00ec310",
+      "filename": "\\\\?\\C:\\Users\\Lois Adu Yeboah\\.copilot\\ide"
+    },
+    {
+      "type": "tcp",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7ec69d9c0",
+      "localEndpoint": {
+        "host": "LAPTOP-UQSBCQKR",
+        "ip4": "172.20.10.2",
+        "port": 57055
+      },
+      "remoteEndpoint": {
+        "host": "lb-140-82-114-22-iad.github.com",
+        "ip4": "140.82.114.22",
+        "port": 443
+      },
+      "sendBufferSize": 65536,
+      "recvBufferSize": 65536,
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "tcp",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7f00e3110",
+      "localEndpoint": {
+        "host": "LAPTOP-UQSBCQKR",
+        "ip4": "172.20.10.2",
+        "port": 63265
+      },
+      "remoteEndpoint": {
+        "host": "lb-140-82-114-22-iad.github.com",
+        "ip4": "140.82.114.22",
+        "port": 443
+      },
+      "sendBufferSize": 65536,
+      "recvBufferSize": 65536,
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "fs_event",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7ef0d7c80",
+      "filename": "\\\\?\\C:\\Users\\Lois Adu Yeboah\\.copilot\\session-state\\8e307a57-a308-4dd3-b8a2-195dd4846953"
+    },
+    {
+      "type": "timer",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000001b7ec5f6830",
+      "repeat": 0,
+      "firesInMsFromNow": 5574,
+      "expired": false
+    },
+    {
+      "type": "pipe",
+      "is_active": false,
+      "is_referenced": true,
+      "address": "0x000001b7ee70dfc0",
+      "localEndpoint": null,
+      "remoteEndpoint": "\\\\?\\pipe\\uv\\18446744073709551615-2688",
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "pipe",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001b7ee70e5e0",
+      "localEndpoint": null,
+      "remoteEndpoint": "\\\\?\\pipe\\uv\\0-2688",
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "pipe",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001b7ee70fb50",
+      "localEndpoint": null,
+      "remoteEndpoint": "\\\\?\\pipe\\uv\\1-2688",
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "process",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001b7f013c280",
+      "pid": 7672
+    },
+    {
+      "type": "pipe",
+      "is_active": false,
+      "is_referenced": true,
+      "address": "0x000001b7ee70f220",
+      "localEndpoint": null,
+      "remoteEndpoint": "\\\\?\\pipe\\uv\\2-2688",
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "pipe",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001b7ee70d9a0",
+      "localEndpoint": null,
+      "remoteEndpoint": "\\\\?\\pipe\\uv\\3-2688",
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "pipe",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001b7ee710170",
+      "localEndpoint": null,
+      "remoteEndpoint": "\\\\?\\pipe\\uv\\4-2688",
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "process",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001b7f0139880",
+      "pid": 19532
+    },
+    {
+      "type": "pipe",
+      "is_active": false,
+      "is_referenced": true,
+      "address": "0x000001b7ee70ef10",
+      "localEndpoint": null,
+      "remoteEndpoint": "\\\\?\\pipe\\uv\\5-2688",
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "pipe",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001b7ee70d690",
+      "localEndpoint": null,
+      "remoteEndpoint": "\\\\?\\pipe\\uv\\6-2688",
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "pipe",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001b7ee70e2d0",
+      "localEndpoint": null,
+      "remoteEndpoint": "\\\\?\\pipe\\uv\\7-2688",
+      "writeQueueSize": 0,
+      "readable": true,
+      "writable": true
+    },
+    {
+      "type": "process",
+      "is_active": true,
+      "is_referenced": true,
+      "address": "0x000001b7f013a780",
+      "pid": 10316
+    },
+    {
+      "type": "loop",
+      "is_active": true,
+      "address": "0x00007ff6dd477d38",
+      "loopIdleTimeSeconds": 89.4153
+    }
+  ],
+  "workers": [
+  ],
+  "sharedObjects": [
+    "C:\\Users\\Lois Adu Yeboah\\AppData\\Roaming\\npm\\node_modules\\@github\\copilot\\node_modules\\@github\\copilot-win32-x64\\copilot.exe",
+    "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+    "C:\\WINDOWS\\System32\\KERNEL32.DLL",
+    "C:\\WINDOWS\\System32\\KERNELBASE.dll",
+    "C:\\WINDOWS\\System32\\CRYPT32.dll",
+    "C:\\WINDOWS\\System32\\ucrtbase.dll",
+    "C:\\WINDOWS\\System32\\WS2_32.dll",
+    "C:\\WINDOWS\\System32\\RPCRT4.dll",
+    "C:\\WINDOWS\\System32\\USER32.dll",
+    "C:\\WINDOWS\\System32\\win32u.dll",
+    "C:\\WINDOWS\\System32\\GDI32.dll",
+    "C:\\WINDOWS\\System32\\gdi32full.dll",
+    "C:\\WINDOWS\\System32\\msvcp_win.dll",
+    "C:\\WINDOWS\\System32\\ADVAPI32.dll",
+    "C:\\WINDOWS\\System32\\msvcrt.dll",
+    "C:\\WINDOWS\\System32\\sechost.dll",
+    "C:\\WINDOWS\\System32\\SHELL32.dll",
+    "C:\\WINDOWS\\SYSTEM32\\dbghelp.dll",
+    "C:\\WINDOWS\\System32\\combase.dll",
+    "C:\\WINDOWS\\System32\\wintypes.dll",
+    "C:\\WINDOWS\\SYSTEM32\\IPHLPAPI.DLL",
+    "C:\\WINDOWS\\System32\\OLEAUT32.dll",
+    "C:\\WINDOWS\\System32\\ole32.dll",
+    "C:\\WINDOWS\\SYSTEM32\\USERENV.dll",
+    "C:\\WINDOWS\\SYSTEM32\\WINMM.dll",
+    "C:\\WINDOWS\\SYSTEM32\\dbgcore.DLL",
+    "C:\\WINDOWS\\SYSTEM32\\CRYPTBASE.DLL",
+    "C:\\WINDOWS\\System32\\IMM32.DLL",
+    "C:\\Program Files\\Windhawk\\Engine\\1.7.3\\64\\windhawk.dll",
+    "C:\\WINDOWS\\SYSTEM32\\powrprof.dll",
+    "C:\\WINDOWS\\SYSTEM32\\UMPDC.dll",
+    "C:\\WINDOWS\\system32\\uxtheme.dll",
+    "C:\\WINDOWS\\system32\\mswsock.dll",
+    "C:\\WINDOWS\\SYSTEM32\\CRYPTSP.dll",
+    "C:\\WINDOWS\\system32\\rsaenh.dll",
+    "C:\\WINDOWS\\System32\\bcryptPrimitives.dll",
+    "C:\\WINDOWS\\SYSTEM32\\kernel.appcore.dll",
+    "C:\\WINDOWS\\System32\\NSI.dll",
+    "C:\\WINDOWS\\SYSTEM32\\dhcpcsvc6.DLL",
+    "C:\\WINDOWS\\SYSTEM32\\dhcpcsvc.DLL",
+    "C:\\WINDOWS\\SYSTEM32\\DNSAPI.dll",
+    "C:\\WINDOWS\\system32\\napinsp.dll",
+    "C:\\WINDOWS\\System32\\winrnr.dll",
+    "C:\\WINDOWS\\system32\\nlansp_c.dll",
+    "C:\\WINDOWS\\system32\\wshbth.dll",
+    "C:\\WINDOWS\\SYSTEM32\\MSASN1.dll",
+    "\\\\?\\C:\\Users\\Lois Adu Yeboah\\.copilot\\pkg\\universal\\1.0.10\\prebuilds\\win32-x64\\keytar.node",
+    "C:\\Windows\\System32\\rasadhlp.dll",
+    "C:\\WINDOWS\\System32\\fwpuclnt.dll",
+    "C:\\WINDOWS\\SYSTEM32\\ntmarta.dll"
+  ]
+}

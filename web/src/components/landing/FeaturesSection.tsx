@@ -6,7 +6,7 @@ const features = [
     { title: 'Persona Engine', desc: 'Build a writing persona from your style, tone, and topics. Every post sounds authentically you.', icon: '🧠' },
     { title: 'Code to Content', desc: 'Automatically turn your Git commits, PRs, and releases into engaging LinkedIn stories.', icon: '⚡' },
     { title: 'One-Click Publish', desc: 'Review AI-generated drafts, edit if needed, and publish directly to LinkedIn via OAuth.', icon: '🚀' },
-    { title: 'Stripe Payments', desc: 'Upgrade to Pro for unlimited posts, premium AI models, and advanced scheduling.', icon: '💳' }
+    { title: 'Pro Waitlist', desc: 'Paid plans and Paystack checkout are being finalized. Join the waitlist to get launch access.', icon: '💳' }
 ];
 
 export default function FeaturesSection() {

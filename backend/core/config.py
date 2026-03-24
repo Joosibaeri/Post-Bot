@@ -111,8 +111,9 @@ def validate_environment() -> None:
         "GITHUB_CLIENT_ID": "GitHub OAuth (private repos)",
         "GITHUB_CLIENT_SECRET": "GitHub OAuth (private repos)",
         "UNSPLASH_ACCESS_KEY": "Image generation",
-        "STRIPE_SECRET_KEY": "Stripe payments",
-        "STRIPE_WEBHOOK_SECRET": "Stripe webhook verification",
+        "PAYSTACK_SECRET_KEY": "Paystack payments",
+        "PAYSTACK_WEBHOOK_SECRET": "Paystack webhook verification",
+        "PAYSTACK_PUBLIC_KEY": "Paystack frontend payments",
     }
     
     missing_required = []
@@ -149,15 +150,16 @@ def validate_environment() -> None:
         logger.info("These are recommended for full functionality.")
 
 # =============================================================================
-# STRIPE CONFIGURATION
+# PAYSTACK CONFIGURATION
 # =============================================================================
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-STRIPE_SUCCESS_URL = os.getenv("STRIPE_SUCCESS_URL", "http://localhost:3000/dashboard?payment=success")
-STRIPE_CANCEL_URL = os.getenv("STRIPE_CANCEL_URL", "http://localhost:3000/pricing")
+PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
+PAYSTACK_PUBLIC_KEY = os.getenv("PAYSTACK_PUBLIC_KEY")
+PAYSTACK_WEBHOOK_SECRET = os.getenv("PAYSTACK_WEBHOOK_SECRET")
+PAYSTACK_SUCCESS_URL = os.getenv("PAYSTACK_SUCCESS_URL", "http://localhost:3000/dashboard?payment=success")
+PAYSTACK_CANCEL_URL = os.getenv("PAYSTACK_CANCEL_URL", "http://localhost:3000/pricing")
 
-# Price IDs for subscription plans (configure in Stripe Dashboard)
-STRIPE_PRICE_IDS = {
-    "pro_monthly": os.getenv("STRIPE_PRICE_PRO_MONTHLY", "price_pro_monthly"),
-    "pro_yearly": os.getenv("STRIPE_PRICE_PRO_YEARLY", "price_pro_yearly"),
+# Paystack plan codes for subscription plans
+PAYSTACK_PLAN_CODES = {
+    "pro_monthly": os.getenv("PAYSTACK_PLAN_PRO_MONTHLY", "PLN_pro_monthly"),
+    "pro_yearly": os.getenv("PAYSTACK_PLAN_PRO_YEARLY", "PLN_pro_yearly"),
 }

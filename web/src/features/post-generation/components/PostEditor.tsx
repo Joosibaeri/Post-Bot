@@ -133,7 +133,7 @@ export const PostEditor: React.FC<PostEditorProps> = ({
 
         // Check if free user trying to select pro model
         if (tier === 'free' && modelInfo?.proOnly) {
-            showToast.error('🔒 Upgrade to Pro to use premium AI models!');
+            showToast.error('Pro is coming soon — join the waitlist to get notified!');
             return;
         }
         setSelectedModel(model);
@@ -350,7 +350,7 @@ export const PostEditor: React.FC<PostEditorProps> = ({
                     </div>
                     {tier === 'free' && (
                         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                            💡 <a href="/pricing" className="text-blue-500 hover:underline">Upgrade to Pro</a> for GPT-4o and Claude 3.5 access
+                            💡 <a href="/pricing" className="text-blue-500 hover:underline">Join the Pro waitlist</a> for GPT-4o and Claude 3.5 access when it launches
                         </p>
                     )}
                 </div>

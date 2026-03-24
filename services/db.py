@@ -336,14 +336,16 @@ async def init_tables():
     
     # =========================================================================
     # TABLE: subscriptions (from schema.py)
-    # Stores Stripe subscription data linked to users
+    # Stores payment subscription data linked to users
     # =========================================================================
     await db.execute("""
         CREATE TABLE IF NOT EXISTS subscriptions (
             id SERIAL PRIMARY KEY,
             user_id TEXT NOT NULL UNIQUE,
-            stripe_customer_id TEXT UNIQUE,
-            stripe_subscription_id TEXT UNIQUE,
+            paystack_customer_code TEXT UNIQUE,
+            paystack_subscription_code TEXT UNIQUE,
+            paystack_email_token TEXT,
+            paystack_authorization_code TEXT,
             plan_id TEXT,
             status TEXT DEFAULT 'inactive',
             current_period_start BIGINT,
@@ -357,10 +359,31 @@ async def init_tables():
         "CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id)"
     )
     await db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_subscriptions_customer ON subscriptions(stripe_customer_id)"
+        "CREATE INDEX IF NOT EXISTS idx_subscriptions_paystack_customer ON subscriptions(paystack_customer_code)"
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_subscriptions_paystack_subscription ON subscriptions(paystack_subscription_code)"
     )
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status)"
     )
+
+    # Add Paystack columns for existing databases
+    try:
+        await db.execute("ALTER TABLE subscriptions ADD COLUMN paystack_customer_code TEXT")
+    except Exception:
+        pass
+    try:
+        await db.execute("ALTER TABLE subscriptions ADD COLUMN paystack_subscription_code TEXT")
+    except Exception:
+        pass
+    try:
+        await db.execute("ALTER TABLE subscriptions ADD COLUMN paystack_email_token TEXT")
+    except Exception:
+        pass
+    try:
+        await db.execute("ALTER TABLE subscriptions ADD COLUMN paystack_authorization_code TEXT")
+    except Exception:
+        pass
     
     logger.info("Database tables initialized successfully (7 tables)")

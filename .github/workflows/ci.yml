@@ -50,8 +50,8 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           ENCRYPTION_KEY: Ag45Scx9q_Q6w3xF8Lz5j2p7n9v0k1m3b5v7c9x1z3m=
           CLERK_ISSUER: https://test-clerk.accounts.dev
-          STRIPE_SECRET_KEY: sk_test_placeholder
-          STRIPE_WEBHOOK_SECRET: whsec_test_placeholder
+          PAYSTACK_SECRET_KEY: sk_test_placeholder
+          PAYSTACK_WEBHOOK_SECRET: sk_test_placeholder
 
   # ============================================
   # Frontend Tests (Next.js/React)
@@ -121,8 +121,8 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           ENCRYPTION_KEY: Ag45Scx9q_Q6w3xF8Lz5j2p7n9v0k1m3b5v7c9x1z3m=
           CLERK_ISSUER: https://test-clerk.accounts.dev
-          STRIPE_SECRET_KEY: sk_test_placeholder
-          STRIPE_WEBHOOK_SECRET: whsec_test_placeholder
+          PAYSTACK_SECRET_KEY: sk_test_placeholder
+          PAYSTACK_WEBHOOK_SECRET: sk_test_placeholder
 
       - name: Wait for backend to be ready
         run: |

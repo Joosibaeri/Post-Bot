@@ -238,7 +238,7 @@ export default function Dashboard() {
 
         // Show completion via AI status
         if (result.was_downgraded) {
-          ai.complete(`Your post is ready, ${firstName}! 👀 (Using free model — upgrade to Pro for premium AI)`);
+          ai.complete(`Your post is ready, ${firstName}! 👀 (Using the free model for now — Pro is still in waitlist)`);
         } else {
           ai.complete(`Your post is ready! 🚀 Generated with ${result.provider || model}.`);
         }
@@ -711,4 +711,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
 

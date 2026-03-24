@@ -2,7 +2,7 @@
  * WaitlistModal Component
  * 
  * Modal for collecting emails for Pro tier waitlist signup.
- * Shows when user clicks "Upgrade to Pro" on free tier.
+ * Shows when user joins the Pro waitlist from free-tier UI.
  */
 
 import React, { useState } from 'react';
@@ -68,8 +68,8 @@ export default function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
                                 Pro is Coming Soon! 🚀
                             </h2>
                             <p className="text-gray-600 dark:text-gray-400">
-                                Get unlimited posts, all templates, and advanced analytics.
-                                Be the first to know when Pro launches.
+                                Paid plans are not live yet.
+                                Join the waitlist to be first in line when Pro launches.
                             </p>
                         </div>
 
@@ -79,7 +79,8 @@ export default function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
                                 'Unlimited daily posts',
                                 'All AI templates unlocked',
                                 'Advanced scheduling',
-                                '30-day analytics'
+                                '30-day analytics',
+                                'Early launch access notification'
                             ].map((feature, i) => (
                                 <div key={i} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                                     <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -138,7 +139,7 @@ export default function WaitlistModal({ isOpen, onClose }: WaitlistModalProps) {
                             You're on the list! 🎉
                         </h2>
                         <p className="text-gray-600 dark:text-gray-400 mb-6">
-                            We'll email you at <span className="font-medium">{email}</span> when Pro launches.
+                            We&apos;ll email you at <span className="font-medium">{email}</span> as soon as Pro opens up.
                         </p>
                         <button
                             onClick={onClose}

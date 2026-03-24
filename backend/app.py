@@ -167,7 +167,7 @@ try:
     from routes.linkedin import router as linkedin_router, auth_router as linkedin_auth_router
     
     # Import payment routers
-    from routes.payments import router as payments_router, webhook_router as stripe_webhook_router
+    from routes.payments import router as payments_router, webhook_router as payments_webhook_router
     
     # Mount API routers
     app.include_router(auth_router)
@@ -183,8 +183,8 @@ try:
     app.include_router(github_auth_router)
     app.include_router(linkedin_auth_router)
     
-    # Mount Stripe webhook router (no /api prefix for Stripe callbacks)
-    app.include_router(stripe_webhook_router)
+    # Mount payment webhook router (no /api prefix for provider callbacks)
+    app.include_router(payments_webhook_router)
     
     logger.info("All routers loaded successfully")
 except ImportError as e:

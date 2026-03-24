@@ -125,7 +125,7 @@ export default function UsageCounter({ usage, compact = false, onUpgradeClick }:
                     )}
                 </div>
 
-                {/* Upgrade CTA for free tier */}
+                {/* Waitlist CTA for free tier */}
                 {tier === 'free' && (
                     <button
                         onClick={onUpgradeClick}
@@ -134,7 +134,7 @@ export default function UsageCounter({ usage, compact = false, onUpgradeClick }:
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                         </svg>
-                        Upgrade to Pro
+                        Join Pro Waitlist
                     </button>
                 )}
             </div>
@@ -219,12 +219,12 @@ export default function UsageCounter({ usage, compact = false, onUpgradeClick }:
                                 </p>
                             </div>
 
-                            {/* Upgrade CTA */}
+                            {/* Waitlist CTA */}
                             <button
                                 onClick={onUpgradeClick}
                                 className="mt-3 w-full py-2 px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-semibold rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all flex items-center justify-center gap-2"
                             >
-                                ⚡ Upgrade to Pro for Unlimited Posts
+                                🚀 Join Pro Waitlist for Higher Limits
                             </button>
                         </div>
                     </div>
@@ -233,4 +233,5 @@ export default function UsageCounter({ usage, compact = false, onUpgradeClick }:
         </div>
     );
 }
+
 

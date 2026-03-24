@@ -35,7 +35,7 @@ backend/
 │   ├── feedback.py     # User feedback
 │   ├── github.py       # GitHub OAuth + activity scanning
 │   ├── linkedin.py     # LinkedIn OAuth
-│   ├── payments.py     # Stripe subscriptions
+│   ├── payments.py     # Paystack subscriptions
 │   ├── posts.py        # Post generation, publishing, scheduling
 │   ├── settings.py     # User settings, connection status, usage
 │   └── webhooks.py     # Webhook receivers
@@ -114,4 +114,4 @@ See the root `.env.example` for all required and optional variables. Key backend
 | `CLERK_ISSUER` | Yes | Clerk JWT issuer URL |
 | `LINKEDIN_CLIENT_ID` | Yes | LinkedIn OAuth app |
 | `LINKEDIN_CLIENT_SECRET` | Yes | LinkedIn OAuth secret |
-| `STRIPE_SECRET_KEY` | Optional | Stripe payments |
+| `PAYSTACK_SECRET_KEY` | Optional | Paystack payments |

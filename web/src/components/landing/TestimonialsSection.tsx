@@ -3,7 +3,7 @@ const testimonials = [
         quote: "PostBot saved me hours every week. My LinkedIn engagement has tripled since I started using it to share my GitHub activity.",
         author: "Sarah Chen",
         role: "Senior Software Engineer",
-        company: "Stripe",
+        company: "Paystack",
         avatar: "👩‍💻"
     },
     {

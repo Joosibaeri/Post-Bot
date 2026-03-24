@@ -1,11 +1,11 @@
 """
-Stripe Payment Routes
+Paystack Payment Routes
 
 API endpoints for:
-- POST /api/checkout: Create checkout session (authenticated)
-- POST /api/billing-portal: Create billing portal session (authenticated)
+- POST /api/checkout: Initialize hosted checkout (authenticated)
+- POST /api/billing-portal: Optional custom subscription management URL
 - POST /api/subscription: Get subscription status (authenticated)
-- POST /webhook/stripe: Handle Stripe webhooks (unauthenticated, signature verified)
+- POST /webhook/paystack: Handle Paystack webhooks (signature verified)
 """
 from typing import Optional
 
@@ -21,9 +21,10 @@ from services.payment_service import (
     get_subscription_info,
     create_billing_portal_session,
     PaymentServiceError,
-    StripeNotConfiguredError,
+    PaystackNotConfiguredError,
     WebhookVerificationError,
     CustomerNotFoundError,
+    SubscriptionManagementUnavailableError,
 )
 from middleware.clerk_auth import require_auth
 
@@ -47,7 +48,8 @@ webhook_router = APIRouter(tags=["Webhooks"])
 class CheckoutRequest(BaseModel):
     """Request to create a checkout session."""
     user_id: str = Field(min_length=1, max_length=64)
-    price_id: str = Field(min_length=1, max_length=128, description="Stripe Price ID (price_xxxxx)")
+    price_id: Optional[str] = Field(default=None, min_length=1, max_length=128, description="Paystack plan code (PLN_xxxxx)")
+    amount_kobo: Optional[int] = Field(default=None, ge=100, description="Optional fallback amount in kobo (e.g. 500000 = NGN 5000)")
     email: Optional[str] = Field(default=None, max_length=254)
     success_url: Optional[str] = Field(default=None, max_length=500)
     cancel_url: Optional[str] = Field(default=None, max_length=500)
@@ -60,13 +62,13 @@ class CheckoutResponse(BaseModel):
 
 
 class BillingPortalRequest(BaseModel):
-    """Request to create a billing portal session."""
+    """Request to open a subscription management page."""
     user_id: str = Field(min_length=1, max_length=64)
     return_url: str = Field(max_length=500, default="http://localhost:3000/settings")
 
 
 class BillingPortalResponse(BaseModel):
-    """Response with billing portal URL."""
+    """Response with subscription-management URL."""
     portal_url: str
 
 
@@ -95,26 +97,32 @@ async def create_checkout(
     current_user: dict = Depends(require_auth),
 ):
     """
-    Create a Stripe Checkout session to start a subscription.
+    Initialize a Paystack hosted checkout flow to start a subscription.
     
-    The user will be redirected to Stripe's hosted checkout page.
+    The user will be redirected to Paystack's hosted checkout page.
     After payment, they'll be redirected to success_url or cancel_url.
     
     **Authentication Required**: Yes (Clerk JWT)
     
     **Request Body**:
     - `user_id`: Clerk user ID
-    - `price_id`: Stripe Price ID (from your Stripe Dashboard)
-    - `email`: Optional customer email
+    - `price_id`: Paystack plan code (from your Paystack dashboard)
+    - `email`: Customer email (required by Paystack)
     - `success_url`: Where to redirect after successful payment
     - `cancel_url`: Where to redirect if user cancels
     
     **Response**:
-    - `session_id`: Stripe session ID (for client-side redirect)
+    - `session_id`: Paystack transaction reference
     - `checkout_url`: Direct URL to the checkout page
     """
-    log = logger.bind(user_id=body.user_id, price_id=body.price_id)
+    log = logger.bind(user_id=body.user_id, price_id=body.price_id, amount_kobo=body.amount_kobo)
     log.info("checkout_request_received")
+
+    if not body.price_id and not body.amount_kobo:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either price_id (plan code) or amount_kobo."
+        )
     
     # Verify user_id matches authenticated user
     auth_user_id = current_user.get("user_id")
@@ -123,10 +131,15 @@ async def create_checkout(
         raise HTTPException(status_code=403, detail="User ID mismatch")
     
     try:
+        checkout_email = body.email or current_user.get("email")
+        if not checkout_email:
+            raise HTTPException(status_code=400, detail="Email is required to start checkout")
+
         result = await create_checkout_session(
             user_id=body.user_id,
             price_id=body.price_id,
-            email=body.email,
+            amount_kobo=body.amount_kobo,
+            email=checkout_email,
             success_url=body.success_url,
             cancel_url=body.cancel_url,
         )
@@ -136,8 +149,8 @@ async def create_checkout(
             checkout_url=result.checkout_url,
         )
         
-    except StripeNotConfiguredError as e:
-        log.error("stripe_not_configured", error=str(e))
+    except PaystackNotConfiguredError as e:
+        log.error("paystack_not_configured", error=str(e))
         raise HTTPException(
             status_code=503,
             detail="Payment service is not configured. Please contact support."
@@ -158,18 +171,16 @@ async def create_portal(
     current_user: dict = Depends(require_auth),
 ):
     """
-    Create a Stripe Billing Portal session for subscription self-service.
+    Return a subscription management URL if your app provides one.
     
-    Users can manage their subscription:
-    - Update payment method
-    - View invoices
-    - Cancel subscription
+    Paystack does not provide a built-in hosted billing portal. If your app
+    configures a custom management page, this endpoint returns that URL.
     
     **Authentication Required**: Yes (Clerk JWT)
     
     **Request Body**:
     - `user_id`: Clerk user ID
-    - `return_url`: Where to redirect after portal session
+    - `return_url`: Where to redirect after management flow
     
     **Response**:
     - `portal_url`: URL to redirect user to
@@ -197,8 +208,11 @@ async def create_portal(
             status_code=404,
             detail="No subscription found. Please subscribe first."
         )
-    except StripeNotConfiguredError as e:
-        log.error("stripe_not_configured", error=str(e))
+    except SubscriptionManagementUnavailableError as e:
+        log.warning("subscription_management_unavailable", error=str(e))
+        raise HTTPException(status_code=501, detail=str(e))
+    except PaystackNotConfiguredError as e:
+        log.error("paystack_not_configured", error=str(e))
         raise HTTPException(
             status_code=503,
             detail="Payment service is not configured. Please contact support."
@@ -228,8 +242,8 @@ async def get_subscription(
     
     **Response**:
     - `has_subscription`: Whether user has any subscription record
-    - `status`: Subscription status (active, past_due, canceled, etc.)
-    - `plan_id`: Stripe Price ID
+    - `status`: Subscription status (active, non_renewing, attention, etc.)
+    - `plan_id`: Paystack plan code
     - `current_period_end`: Unix timestamp of current billing period end
     - `cancel_at_period_end`: Whether subscription is scheduled to cancel
     """
@@ -261,35 +275,36 @@ async def get_subscription(
 
 
 # =============================================================================
-# STRIPE WEBHOOK ENDPOINT
+# PAYSTACK WEBHOOK ENDPOINT
 # =============================================================================
 
-@webhook_router.post("/webhook/stripe")
-async def stripe_webhook(
+@webhook_router.post("/webhook/paystack")
+async def paystack_webhook(
     request: Request,
-    stripe_signature: str = Header(None, alias="Stripe-Signature"),
+    paystack_signature: str = Header(None, alias="x-paystack-signature"),
 ):
     """
-    Handle Stripe webhook events.
+    Handle Paystack webhook events.
     
     **Authentication**: None (signature verified internally)
     
-    This endpoint receives events from Stripe:
-    - `checkout.session.completed`: User completed checkout
-    - `invoice.payment_succeeded`: Recurring payment successful
-    - `invoice.payment_failed`: Payment failed
-    - `customer.subscription.updated`: Subscription changed
-    - `customer.subscription.deleted`: Subscription canceled
+    This endpoint receives events from Paystack such as:
+    - `charge.success`
+    - `subscription.create`
+    - `subscription.not_renew`
+    - `subscription.disable`
+    - `invoice.payment_failed`
     
-    **SECURITY**: Webhook signature is verified using STRIPE_WEBHOOK_SECRET.
+    **SECURITY**: Webhook signature is verified using PAYSTACK_WEBHOOK_SECRET
+    (or PAYSTACK_SECRET_KEY if no explicit webhook secret is configured).
     Never process events without verification.
     """
-    log = logger.bind(endpoint="stripe_webhook")
+    log = logger.bind(endpoint="paystack_webhook")
     
     # Validate signature header exists
-    if not stripe_signature:
+    if not paystack_signature:
         log.warning("webhook_missing_signature")
-        raise HTTPException(status_code=400, detail="Missing Stripe-Signature header")
+        raise HTTPException(status_code=400, detail="Missing x-paystack-signature header")
     
     # Get raw body for signature verification
     try:
@@ -299,7 +314,7 @@ async def stripe_webhook(
         raise HTTPException(status_code=400, detail="Failed to read request body")
     
     try:
-        success, message = await handle_webhook(payload, stripe_signature)
+        success, message = await handle_webhook(payload, paystack_signature)
         
         if success:
             log.info("webhook_processed", message=message)
@@ -310,7 +325,7 @@ async def stripe_webhook(
         else:
             log.warning("webhook_processing_issue", message=message)
             return JSONResponse(
-                status_code=200,  # Return 200 to prevent Stripe retries
+                status_code=200,  # Return 200 to prevent provider retries
                 content={"received": True, "message": message}
             )
             
@@ -320,5 +335,5 @@ async def stripe_webhook(
     
     except PaymentServiceError as e:
         log.error("webhook_processing_failed", error=str(e))
-        # Return 500 so Stripe will retry the webhook
+        # Return 500 so Paystack will retry the webhook
         raise HTTPException(status_code=500, detail="Webhook processing failed")

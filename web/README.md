@@ -22,7 +22,7 @@ A modern, production-ready web application for generating high-quality LinkedIn 
   - **ARIA Support**: Proper labels, roles, and associations throughout.
   - **Glassmorphism Auth Pages**: Redesigned sign-up/sign-in with gradient panels and trust signals.
 - **Secure Authentication**: Powered by Clerk for robust user management.
-- **Payments**: Stripe integration with free/pro/enterprise tiers.
+- **Payments**: Paystack integration with free/pro/enterprise tiers.
 
 ## Tech Stack
 

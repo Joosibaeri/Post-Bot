@@ -1,10 +1,18 @@
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import SEOHead from '@/components/SEOHead';
 import ThemeToggle from '@/components/ThemeToggle';
 
+const WaitlistModal = dynamic(() => import('@/components/modals/WaitlistModal'));
+
 export default function Pricing() {
   const router = useRouter();
+  const [showWaitlist, setShowWaitlist] = useState(false);
+  const monthlyCheckoutUrl = process.env.NEXT_PUBLIC_PAYSTACK_MONTHLY_CHECKOUT_URL || '';
+  const yearlyCheckoutUrl = process.env.NEXT_PUBLIC_PAYSTACK_YEARLY_CHECKOUT_URL || '';
+  const hasDirectCheckout = Boolean(monthlyCheckoutUrl && yearlyCheckoutUrl);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -43,8 +51,16 @@ export default function Pricing() {
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">Simple, Transparent Pricing</h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Choose the plan that fits your needs. All plans include core features.
+            Start free today. Pro is still in private rollout, so paid plans are waitlist-only for now.
           </p>
+          <div className="mt-4">
+            <Link
+              href="/payment-test"
+              className="inline-flex items-center rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              Open Payment Test UI
+            </Link>
+          </div>
         </div>
 
         {/* Pricing Cards */}
@@ -111,17 +127,21 @@ export default function Pricing() {
           <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-8 shadow-2xl border-2 border-blue-600 relative transform scale-105">
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
               <span className="bg-yellow-400 text-gray-900 px-4 py-1 rounded-full text-sm font-bold">
-                MOST POPULAR
+                COMING SOON
               </span>
             </div>
 
             <div className="mb-6">
               <h3 className="text-2xl font-bold text-white mb-2">Pro</h3>
               <div className="flex items-baseline mb-4">
-                <span className="text-5xl font-bold text-white">$19</span>
-                <span className="text-blue-100 ml-2">/month</span>
+                <span className="text-5xl font-bold text-white">$5</span>
+                <span className="text-blue-100 ml-2">/month at launch</span>
               </div>
-              <p className="text-blue-100">For serious content creators</p>
+              <p className="text-blue-100">
+                {hasDirectCheckout
+                  ? 'Pick a plan to continue to Paystack hosted checkout.'
+                  : 'Join the waitlist for early access when Pro goes live'}
+              </p>
             </div>
 
             <ul className="space-y-4 mb-8">
@@ -178,12 +198,37 @@ export default function Pricing() {
               </li>
             </ul>
 
-            <button
-              onClick={() => router.push('/onboarding')}
-              className="w-full bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all shadow-lg"
-            >
-              Start Pro Trial
-            </button>
+            {hasDirectCheckout ? (
+              <div className="space-y-3">
+                <a
+                  href={monthlyCheckoutUrl}
+                  className="block w-full text-center bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all shadow-lg"
+                >
+                  Checkout Monthly Plan
+                </a>
+                <a
+                  href={yearlyCheckoutUrl}
+                  className="block w-full text-center bg-blue-900 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-950 transition-all"
+                >
+                  Checkout Yearly Plan
+                </a>
+                <p className="text-center text-xs text-blue-100">
+                  You will be redirected to Paystack secure checkout.
+                </p>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => setShowWaitlist(true)}
+                  className="w-full bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all shadow-lg"
+                >
+                  Join Pro Waitlist
+                </button>
+                <p className="mt-3 text-center text-sm text-blue-100">
+                  Free plan is fully available right now.
+                </p>
+              </>
+            )}
           </div>
 
           {/* Enterprise Tier */}
@@ -244,27 +289,29 @@ export default function Pricing() {
 
           <div className="space-y-6">
             <div className="bg-white dark:bg-white/5 rounded-lg p-6 shadow-md dark:border dark:border-white/10">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Can I upgrade or downgrade my plan?</h3>
-              <p className="text-gray-600 dark:text-gray-300">Yes! You can change your plan at any time. Changes take effect immediately.</p>
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">When will Pro launch?</h3>
+              <p className="text-gray-600 dark:text-gray-300">We’re rolling Pro out gradually. Join the waitlist and we’ll email you as soon as launch access opens.</p>
             </div>
 
             <div className="bg-white dark:bg-white/5 rounded-lg p-6 shadow-md dark:border dark:border-white/10">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-2">What payment methods do you accept?</h3>
-              <p className="text-gray-600 dark:text-gray-300">We accept all major credit cards, PayPal, and wire transfers for Enterprise plans.</p>
+              <p className="text-gray-600 dark:text-gray-300">When Pro launches, payments will be handled securely through Paystack for supported card payments. Enterprise billing will be arranged separately.</p>
             </div>
 
             <div className="bg-white dark:bg-white/5 rounded-lg p-6 shadow-md dark:border dark:border-white/10">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Is there a free trial?</h3>
-              <p className="text-gray-600 dark:text-gray-300">Yes! The Free plan is available forever. Pro plans include a 14-day free trial.</p>
+              <p className="text-gray-600 dark:text-gray-300">The Free plan is available right now and remains the best way to try Post Bot while Pro is still in waitlist mode.</p>
             </div>
 
             <div className="bg-white dark:bg-white/5 rounded-lg p-6 shadow-md dark:border dark:border-white/10">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Can I cancel anytime?</h3>
-              <p className="text-gray-600 dark:text-gray-300">Absolutely. No long-term contracts. Cancel your subscription anytime from your dashboard.</p>
+              <p className="text-gray-600 dark:text-gray-300">Billing controls will be announced before launch. Since Pro is not live yet, there’s nothing you need to cancel today.</p>
             </div>
           </div>
         </div>
       </main>
+
+      <WaitlistModal isOpen={showWaitlist} onClose={() => setShowWaitlist(false)} />
     </div>
   );
 }

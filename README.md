@@ -39,7 +39,7 @@ It's built for developers who want to grow their professional presence without s
 | **Persona System** | AI writing persona quiz that tailors post tone and style |
 | **Post Editor** | Manual writing with character counter and preview |
 | **Image Integration** | Optional Unsplash images for visual posts |
-| **Payments** | Stripe integration with free/pro/enterprise tiers |
+| **Payments** | Paystack integration with free/pro/enterprise tiers |
 | **AI Status Messages** | Real-time, personalised chat-bubble feedback during all AI operations |
 | **CLI Bot Mode** | Standalone script for scheduled, automated posting |
 | **Repurpose Engine** | Convert any URL (articles, YouTube, tweets) into a ready-to-publish LinkedIn post |
@@ -78,7 +78,7 @@ It's built for developers who want to grow their professional presence without s
 - **Production Readiness**: Redis-backed rate limiter, DB health probe, environment validation
 - **Focus Trapping**: Full keyboard accessibility in modals
 - **Request Tracing**: X-Request-ID middleware for distributed tracing
-- **Stripe Payments**: Subscription tiers with usage-based limits
+- **Paystack Payments**: Subscription tiers with usage-based limits
 - **Repurpose Engine**: Paste a URL and let AI extract key insights to generate a LinkedIn post.
 
 ### ⚠️ Known Limitations
@@ -536,7 +536,7 @@ py tests/verify_phase2_security.py
 | **Authentication** | Clerk (frontend), JWT verification (backend) |
 | **AI** | Groq (llama-3.3-70b), OpenAI (gpt-4o), Anthropic (claude-3.5-sonnet), Mistral (mistral-large) |
 | **Task Queue** | Celery 5.6 + Redis 7 |
-| **Payments** | Stripe |
+| **Payments** | Paystack |
 | **Logging** | structlog (structured JSON logging) |
 | **APIs** | LinkedIn OAuth, GitHub REST API, Unsplash |
 
@@ -1013,7 +1013,7 @@ linkedin-post-bot/
 │   │   ├── feedback.py         # User feedback
 │   │   ├── github.py           # GitHub OAuth + scan
 │   │   ├── linkedin.py         # LinkedIn OAuth
-│   │   ├── payments.py         # Stripe payments
+│   │   ├── payments.py         # Paystack payments
 │   │   ├── posts.py            # Post generation & publishing
 │   │   ├── settings.py         # User settings & preferences
 │   │   └── webhooks.py         # Webhook receivers
@@ -1030,7 +1030,7 @@ linkedin-post-bot/
 │   ├── linkedin_service.py     # LinkedIn posting
 │   ├── persona_analyzer.py     # AI persona analysis
 │   ├── persona_service.py      # Persona management
-│   ├── payment_service.py      # Stripe integration
+│   ├── payment_service.py      # Paystack integration
 │   ├── celery_app.py           # Celery task queue
 │   ├── scheduler.py            # Post scheduling engine
 │   ├── db.py                   # Database connection (pool tuning)
@@ -1144,7 +1144,7 @@ CLI (bot.py)                Web (backend/app.py)
 - [x] AI persona customization (tone, style)
 - [x] Docker deployment package
 - [x] Multi-provider AI (Groq, OpenAI, Anthropic, Mistral)
-- [x] Stripe payment integration
+- [x] Paystack payment integration
 - [x] Full accessibility (ARIA, focus trapping, keyboard nav)
 - [x] Interactive AI status messages (personalised chat bubbles)
 - [x] Production readiness hardening (health probes, env validation, Redis rate limiter)

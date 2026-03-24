@@ -255,7 +255,7 @@ export default function Home() {
               { title: 'Persona Engine', desc: 'Build a writing persona from your style, tone, and topics. Every post sounds authentically you.', icon: '🧠' },
               { title: 'Code to Content', desc: 'Automatically turn your Git commits, PRs, and releases into engaging LinkedIn stories.', icon: '⚡' },
               { title: 'One-Click Publish', desc: 'Review AI-generated drafts, edit if needed, and publish directly to LinkedIn via OAuth.', icon: '🚀' },
-              { title: 'Stripe Payments', desc: 'Upgrade to Pro for unlimited posts, premium AI models, and advanced scheduling.', icon: '💳' }
+              { title: 'Pro Waitlist', desc: 'Paid plans and Paystack checkout are being finalized. Join the waitlist for launch access.', icon: '💳' }
             ].map((feature, i) => (
               <div key={i} className="group p-8 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 hover:border-blue-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/10">
                 <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-transform">
@@ -465,7 +465,7 @@ export default function Home() {
                 quote: "PostBot saved me hours every week. My LinkedIn engagement has tripled since I started using it to share my GitHub activity.",
                 author: "Sarah Chen",
                 role: "Senior Software Engineer",
-                company: "Stripe",
+                company: "Paystack",
                 avatar: "👩‍💻"
               },
               {
@@ -548,11 +548,11 @@ export default function Home() {
               { name: 'GitHub', icon: '🐙', status: 'active', desc: 'Scan commits, PRs, releases' },
               { name: 'LinkedIn', icon: '💼', status: 'active', desc: 'Direct publishing via OAuth' },
               { name: 'Groq AI', icon: '⚡', status: 'active', desc: 'Llama 3.3 70B — free tier' },
-              { name: 'OpenAI', icon: '🧠', status: 'active', desc: 'GPT-4o — Pro tier' },
-              { name: 'Anthropic', icon: '🤖', status: 'active', desc: 'Claude 3.5 Sonnet — Pro tier' },
+              { name: 'OpenAI', icon: '🧠', status: 'coming', desc: 'GPT-4o — Pro tier' },
+              { name: 'Anthropic', icon: '🤖', status: 'coming', desc: 'Claude 3.5 Sonnet — Pro tier' },
               { name: 'Mistral', icon: '🌀', status: 'active', desc: 'Mistral Large — Pro tier' },
               { name: 'Unsplash', icon: '📸', status: 'active', desc: 'Beautiful stock images' },
-              { name: 'Stripe', icon: '💳', status: 'active', desc: 'Subscription payments' },
+              { name: 'Paystack', icon: '💳', status: 'coming', desc: 'Paid plans launching soon' },
               { name: 'GitLab', icon: '🦊', status: 'coming', desc: 'Coming Q3 2026' },
               { name: 'Twitter/X', icon: '🐦', status: 'coming', desc: 'Coming Q3 2026' }
             ].map((integration, i) => (
@@ -632,7 +632,7 @@ export default function Home() {
                 COMING SOON
               </div>
               <div className="text-lg font-semibold text-blue-100 mb-2">Pro</div>
-              <div className="text-4xl font-bold mb-1">$10</div>
+              <div className="text-4xl font-bold mb-1">$5</div>
               <div className="text-blue-200 mb-6">/month</div>
               <ul className="space-y-3 mb-8 opacity-80">
                 {[
@@ -653,10 +653,10 @@ export default function Home() {
                 ))}
               </ul>
               <button
-                disabled
-                className="w-full py-3 px-6 rounded-xl bg-white/30 text-white font-bold cursor-not-allowed"
+                onClick={() => router.push('/pricing')}
+                className="w-full py-3 px-6 rounded-xl bg-white text-blue-700 font-bold hover:bg-blue-50 transition-all"
               >
-                Coming Soon
+                Join Waitlist
               </button>
             </div>
 
@@ -666,7 +666,7 @@ export default function Home() {
                 COMING SOON
               </div>
               <div className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-2">Team</div>
-              <div className="text-4xl font-bold mb-1">$30</div>
+              <div className="text-4xl font-bold mb-1">$15</div>
               <div className="text-gray-500 mb-6">/month</div>
               <ul className="space-y-3 mb-8 opacity-70">
                 {[
@@ -712,7 +712,7 @@ export default function Home() {
             {[
               {
                 q: 'Is PostBot really free?',
-                a: 'Yes! Our Free tier gives you 10 posts per month, Groq AI generation, persona engine, and post scheduling. No credit card required. Pro tier unlocks unlimited posts, premium AI models (GPT-4o, Claude, Mistral), and advanced features.'
+                a: 'Yes! Our Free tier gives you 10 posts per month, Groq AI generation, persona engine, and post scheduling. No credit card required. Pro is not live yet, but you can join the waitlist for launch access.'
               },
 
               {
@@ -732,8 +732,8 @@ export default function Home() {
                 a: 'Yes! Every post can be fully edited before publishing. Add your personal touch, adjust tone, include hashtags - you have complete control.'
               },
               {
-                q: 'What happens to my scheduled posts if I downgrade?',
-                a: 'Any already-scheduled posts will still be published. You just won\'t be able to schedule new ones until you upgrade again.'
+                q: 'When will Pro launch?',
+                a: 'We\'re finalizing paid plans and Paystack checkout. Join the waitlist on the pricing page and we\'ll email you as soon as Pro opens.'
               }
             ].map((faq, i) => (
               <details key={i} className="group p-6 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:border-blue-500/30 transition-all cursor-pointer">

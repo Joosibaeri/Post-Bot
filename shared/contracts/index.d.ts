@@ -4,103 +4,6 @@
  */
 
 export interface paths {
-    "/auth/linkedin/start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Linkedin Start
-         * @description Redirects the user to LinkedIn's authorization page.
-         *
-         *     If user_id is provided, uses that user's saved LinkedIn credentials.
-         *     Otherwise falls back to global env vars.
-         */
-        get: operations["linkedin_start_auth_linkedin_start_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/linkedin/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Linkedin Callback
-         * @description Exchange code for token and redirect back to frontend.
-         *
-         *     Redirects to: {frontend_redirect}?linkedin_success=true&linkedin_urn=...
-         *     Or on error: {frontend_redirect}?linkedin_success=false&error=...
-         */
-        get: operations["linkedin_callback_auth_linkedin_callback_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/github/start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Github Oauth Start
-         * @description Start GitHub OAuth flow.
-         *
-         *     Redirects user to GitHub's authorization page.
-         *     Requested scopes: read:user, repo (for private repo access)
-         *
-         *     Args:
-         *         redirect_uri: Where to redirect after auth (validated, not passed to GitHub)
-         *         user_id: Clerk user ID (stored in state for callback)
-         */
-        get: operations["github_oauth_start_auth_github_start_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/github/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Github Oauth Callback
-         * @description Handle GitHub OAuth callback.
-         *
-         *     Exchanges authorization code for access token and stores it encrypted.
-         *
-         *     Returns JSON status for the frontend callback component.
-         */
-        get: operations["github_oauth_callback_auth_github_callback_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/auth/refresh": {
         parameters: {
             query?: never;
@@ -112,7 +15,10 @@ export interface paths {
         put?: never;
         /**
          * Refresh Auth
-         * @description Check if user has valid LinkedIn connection
+         * @description Check if user has valid LinkedIn connection.
+         *
+         *     Checks the accounts table (where OAuth tokens are actually stored)
+         *     for a valid LinkedIn connection, with user_settings as a fallback.
          */
         post: operations["refresh_auth_auth_refresh_post"];
         delete?: never;
@@ -181,6 +87,26 @@ export interface paths {
          *     - Pro tier: Can choose groq, openai (GPT-4o), or anthropic (Claude 3.5)
          */
         post: operations["generate_preview_api_post_generate_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/post/repurpose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Repurpose Url
+         * @description Takes a URL, scrapes its content, and generates 3 diverse LinkedIn posts using AI.
+         */
+        post: operations["repurpose_url_api_post_repurpose_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -269,6 +195,9 @@ export interface paths {
         /**
          * Publish
          * @description Publish a post to LinkedIn.
+         *
+         *     Accepts either pre-generated post_content (bot mode) or a context dict
+         *     to generate from (manual mode).
          */
         post: operations["publish_api_post_publish_post"];
         delete?: never;
@@ -332,10 +261,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Settings */
+        /**
+         * Get Settings
+         * @description Get user settings including persona.
+         *
+         *     Returns empty object if no settings exist yet.
+         */
         get: operations["get_settings_api_settings__user_id__get"];
         put?: never;
-        /** Save Settings Path */
+        /**
+         * Save Settings Path
+         * @description Save user settings with user_id from path.
+         *
+         *     Used by PersonaSettings component.
+         */
         post: operations["save_settings_path_api_settings__user_id__post"];
         delete?: never;
         options?: never;
@@ -372,7 +311,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Usage */
+        /**
+         * Get Usage
+         * @description Get usage stats for the daily limit bar.
+         *
+         *     Returns posts used today out of daily limit (10 for free, 50 for pro).
+         */
         get: operations["get_usage_api_usage__user_id__get"];
         put?: never;
         post?: never;
@@ -389,7 +333,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Stats */
+        /**
+         * Get Stats
+         * @description Get dashboard stats for a user.
+         *
+         *     Returns post counts, credits, and growth metrics.
+         */
         get: operations["get_stats_api_stats__user_id__get"];
         put?: never;
         post?: never;
@@ -406,7 +355,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Connection Status */
+        /**
+         * Get Connection Status
+         * @description Get connection status for LinkedIn and GitHub.
+         *
+         *     Returns which services are connected for this user.
+         */
         get: operations["get_connection_status_api_connection_status__user_id__get"];
         put?: never;
         post?: never;
@@ -425,7 +379,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create Post */
+        /**
+         * Create Post
+         * @description Create/save a new post record.
+         */
         post: operations["create_post_api_posts_post"];
         delete?: never;
         options?: never;
@@ -440,7 +397,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Scheduled Posts */
+        /**
+         * Get Scheduled Posts
+         * @description Get scheduled posts for a user.
+         */
         get: operations["get_scheduled_posts_api_scheduled_posts__user_id__get"];
         put?: never;
         post?: never;
@@ -497,7 +457,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Posts History */
+        /**
+         * Get Posts History
+         * @description Get post history for a user.
+         */
         get: operations["get_posts_history_api_posts__user_id__get"];
         put?: never;
         post?: never;
@@ -516,7 +479,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Schedule Post */
+        /**
+         * Schedule Post
+         * @description Schedule a post for later.
+         */
         post: operations["schedule_post_api_scheduled_post"];
         delete?: never;
         options?: never;
@@ -531,7 +497,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Scheduled */
+        /**
+         * Get Scheduled
+         * @description Get scheduled posts for a user.
+         */
         get: operations["get_scheduled_api_scheduled__user_id__get"];
         put?: never;
         post?: never;
@@ -551,7 +520,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Scheduled */
+        /**
+         * Delete Scheduled
+         * @description Delete a scheduled post.
+         */
         delete: operations["delete_scheduled_api_scheduled__post_id__delete"];
         options?: never;
         head?: never;
@@ -567,7 +539,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Publish Full */
+        /**
+         * Publish Full
+         * @description Publish a post with optional image to LinkedIn.
+         */
         post: operations["publish_full_api_publish_full_post"];
         delete?: never;
         options?: never;
@@ -713,22 +688,22 @@ export interface paths {
         put?: never;
         /**
          * Create Checkout
-         * @description Create a Stripe Checkout session to start a subscription.
+         * @description Initialize a Paystack hosted checkout flow to start a subscription.
          *
-         *     The user will be redirected to Stripe's hosted checkout page.
+         *     The user will be redirected to Paystack's hosted checkout page.
          *     After payment, they'll be redirected to success_url or cancel_url.
          *
          *     **Authentication Required**: Yes (Clerk JWT)
          *
          *     **Request Body**:
          *     - `user_id`: Clerk user ID
-         *     - `price_id`: Stripe Price ID (from your Stripe Dashboard)
-         *     - `email`: Optional customer email
+         *     - `price_id`: Paystack plan code (from your Paystack dashboard)
+         *     - `email`: Customer email (required by Paystack)
          *     - `success_url`: Where to redirect after successful payment
          *     - `cancel_url`: Where to redirect if user cancels
          *
          *     **Response**:
-         *     - `session_id`: Stripe session ID (for client-side redirect)
+         *     - `session_id`: Paystack transaction reference
          *     - `checkout_url`: Direct URL to the checkout page
          */
         post: operations["create_checkout_api_checkout_post"];
@@ -749,18 +724,16 @@ export interface paths {
         put?: never;
         /**
          * Create Portal
-         * @description Create a Stripe Billing Portal session for subscription self-service.
+         * @description Return a subscription management URL if your app provides one.
          *
-         *     Users can manage their subscription:
-         *     - Update payment method
-         *     - View invoices
-         *     - Cancel subscription
+         *     Paystack does not provide a built-in hosted billing portal. If your app
+         *     configures a custom management page, this endpoint returns that URL.
          *
          *     **Authentication Required**: Yes (Clerk JWT)
          *
          *     **Request Body**:
          *     - `user_id`: Clerk user ID
-         *     - `return_url`: Where to redirect after portal session
+         *     - `return_url`: Where to redirect after management flow
          *
          *     **Response**:
          *     - `portal_url`: URL to redirect user to
@@ -792,8 +765,8 @@ export interface paths {
          *
          *     **Response**:
          *     - `has_subscription`: Whether user has any subscription record
-         *     - `status`: Subscription status (active, past_due, canceled, etc.)
-         *     - `plan_id`: Stripe Price ID
+         *     - `status`: Subscription status (active, non_renewing, attention, etc.)
+         *     - `plan_id`: Paystack plan code
          *     - `current_period_end`: Unix timestamp of current billing period end
          *     - `cancel_at_period_end`: Whether subscription is scheduled to cancel
          */
@@ -804,7 +777,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/webhook/stripe": {
+    "/auth/github/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Github Oauth Start
+         * @description Start GitHub OAuth flow.
+         *
+         *     Redirects user to GitHub's authorization page.
+         *     Requested scopes: read:user, repo (for private repo access)
+         *
+         *     Args:
+         *         redirect_uri: Where to redirect after auth (validated, not passed to GitHub)
+         *         user_id: Clerk user ID (stored in state for callback)
+         */
+        get: operations["github_oauth_start_auth_github_start_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/github/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Github Oauth Callback
+         * @description Handle GitHub OAuth callback.
+         *
+         *     Exchanges authorization code for access token and stores it encrypted.
+         *
+         *     Returns JSON status for the frontend callback component.
+         */
+        get: operations["github_oauth_callback_auth_github_callback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/linkedin/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Linkedin Start
+         * @description Redirects the user to LinkedIn's authorization page.
+         *
+         *     If user_id is provided, uses that user's saved LinkedIn credentials.
+         *     Otherwise falls back to global env vars.
+         */
+        get: operations["linkedin_start_auth_linkedin_start_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/linkedin/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Linkedin Callback
+         * @description Exchange code for token and redirect back to frontend.
+         *
+         *     Redirects to: {frontend_redirect}?linkedin_success=true&linkedin_urn=...
+         *     Or on error: {frontend_redirect}?linkedin_success=false&error=...
+         */
+        get: operations["linkedin_callback_auth_linkedin_callback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhook/paystack": {
         parameters: {
             query?: never;
             header?: never;
@@ -814,22 +884,23 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Stripe Webhook
-         * @description Handle Stripe webhook events.
+         * Paystack Webhook
+         * @description Handle Paystack webhook events.
          *
          *     **Authentication**: None (signature verified internally)
          *
-         *     This endpoint receives events from Stripe:
-         *     - `checkout.session.completed`: User completed checkout
-         *     - `invoice.payment_succeeded`: Recurring payment successful
-         *     - `invoice.payment_failed`: Payment failed
-         *     - `customer.subscription.updated`: Subscription changed
-         *     - `customer.subscription.deleted`: Subscription canceled
+         *     This endpoint receives events from Paystack such as:
+         *     - `charge.success`
+         *     - `subscription.create`
+         *     - `subscription.not_renew`
+         *     - `subscription.disable`
+         *     - `invoice.payment_failed`
          *
-         *     **SECURITY**: Webhook signature is verified using STRIPE_WEBHOOK_SECRET.
+         *     **SECURITY**: Webhook signature is verified using PAYSTACK_WEBHOOK_SECRET
+         *     (or PAYSTACK_SECRET_KEY if no explicit webhook secret is configured).
          *     Never process events without verification.
          */
-        post: operations["stripe_webhook_webhook_stripe_post"];
+        post: operations["paystack_webhook_webhook_paystack_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -887,7 +958,7 @@ export interface components {
         };
         /**
          * BillingPortalRequest
-         * @description Request to create a billing portal session.
+         * @description Request to open a subscription management page.
          */
         BillingPortalRequest: {
             /** User Id */
@@ -900,7 +971,7 @@ export interface components {
         };
         /**
          * BillingPortalResponse
-         * @description Response with billing portal URL.
+         * @description Response with subscription-management URL.
          */
         BillingPortalResponse: {
             /** Portal Url */
@@ -915,7 +986,7 @@ export interface components {
             user_id: string;
             /**
              * Price Id
-             * @description Stripe Price ID (price_xxxxx)
+             * @description Paystack plan code (PLN_xxxxx)
              */
             price_id: string;
             /** Email */
@@ -1044,9 +1115,9 @@ export interface components {
         /** PostRequest */
         PostRequest: {
             /** Context */
-            context: {
+            context?: {
                 [key: string]: unknown;
-            };
+            } | null;
             /**
              * Test Mode
              * @default true
@@ -1059,6 +1130,12 @@ export interface components {
              * @default groq
              */
             model: string | null;
+            /** Post Content */
+            post_content?: string | null;
+            /** Image Url */
+            image_url?: string | null;
+            /** Post Id */
+            post_id?: string | null;
         };
         /** PublishFullRequest */
         PublishFullRequest: {
@@ -1075,6 +1152,28 @@ export interface components {
             test_mode: boolean | null;
             /** Post Id */
             post_id?: string | null;
+        };
+        /**
+         * RepurposeRequest
+         * @description Request model for repurposing URL content.
+         */
+        RepurposeRequest: {
+            /**
+             * User Id
+             * @description Clerk user ID
+             */
+            user_id: string;
+            /**
+             * Url
+             * @description The URL to scrape and repurpose
+             */
+            url: string;
+            /**
+             * Model
+             * @description The AI model to use (e.g., groq, openai)
+             * @default groq
+             */
+            model: string;
         };
         /**
          * ScanRequest
@@ -1096,7 +1195,7 @@ export interface components {
              * Activity Type
              * @description Filter by specific activity type
              */
-            activity_type?: ("push" | "PushEvent" | "pr" | "pull_request" | "PullRequestEvent" | "commit" | "CommitEvent" | "new_repo" | "CreateEvent" | "issue" | "IssuesEvent" | "comment" | "IssueCommentEvent" | "release" | "ReleaseEvent" | "fork" | "ForkEvent" | "star" | "WatchEvent" | "generic" | "milestone") | null;
+            activity_type?: ("push" | "PushEvent" | "pr" | "pull_request" | "PullRequestEvent" | "commit" | "CommitEvent" | "new_repo" | "CreateEvent" | "issue" | "IssuesEvent" | "comment" | "IssueCommentEvent" | "release" | "ReleaseEvent" | "fork" | "ForkEvent" | "star" | "WatchEvent" | "generic" | "milestone" | "repurpose") | null;
         };
         /** ScheduleRequest */
         ScheduleRequest: {
@@ -1190,136 +1289,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    linkedin_start_auth_linkedin_start_get: {
-        parameters: {
-            query: {
-                redirect_uri: string;
-                user_id?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    linkedin_callback_auth_linkedin_callback_get: {
-        parameters: {
-            query?: {
-                code?: string;
-                state?: string;
-                redirect_uri?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    github_oauth_start_auth_github_start_get: {
-        parameters: {
-            query: {
-                redirect_uri: string;
-                user_id: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    github_oauth_callback_auth_github_callback_get: {
-        parameters: {
-            query?: {
-                code?: string;
-                state?: string;
-                redirect_uri?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     refresh_auth_auth_refresh_post: {
         parameters: {
             query?: never;
@@ -1427,6 +1396,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["GenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    repurpose_url_api_post_repurpose_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepurposeRequest"];
             };
         };
         responses: {
@@ -2390,11 +2392,141 @@ export interface operations {
             };
         };
     };
-    stripe_webhook_webhook_stripe_post: {
+    github_oauth_start_auth_github_start_get: {
+        parameters: {
+            query: {
+                redirect_uri: string;
+                user_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    github_oauth_callback_auth_github_callback_get: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                redirect_uri?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    linkedin_start_auth_linkedin_start_get: {
+        parameters: {
+            query: {
+                redirect_uri: string;
+                user_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    linkedin_callback_auth_linkedin_callback_get: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                redirect_uri?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    paystack_webhook_webhook_paystack_post: {
         parameters: {
             query?: never;
             header?: {
-                "Stripe-Signature"?: string;
+                "x-paystack-signature"?: string;
             };
             path?: never;
             cookie?: never;

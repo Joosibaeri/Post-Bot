@@ -1,7 +1,7 @@
 const faqs = [
     {
         q: 'Is PostBot really free?',
-        a: 'Yes! Our Free tier gives you 10 posts per month, Groq AI generation, persona engine, and post scheduling. No credit card required. Pro tier unlocks unlimited posts, premium AI models (GPT-4o, Claude, Mistral), and advanced features.'
+        a: 'Yes! Our Free tier gives you 10 posts per month, Groq AI generation, persona engine, and post scheduling. No credit card required. Pro is not live yet, but you can join the waitlist for launch access.'
     },
     {
         q: 'What AI models power PostBot?',
@@ -20,8 +20,8 @@ const faqs = [
         a: 'Yes! Every post can be fully edited before publishing. Add your personal touch, adjust tone, include hashtags - you have complete control.'
     },
     {
-        q: 'What happens to my scheduled posts if I downgrade?',
-        a: "Any already-scheduled posts will still be published. You just won't be able to schedule new ones until you upgrade again."
+        q: 'When will Pro launch?',
+        a: "We’re finalizing the paid experience and Paystack rollout. Join the waitlist and we’ll let you know as soon as Pro is available."
     }
 ];
 

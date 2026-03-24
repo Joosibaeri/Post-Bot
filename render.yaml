@@ -13,7 +13,7 @@
 # Deploy with: https://render.com/deploy
 # 
 # IMPORTANT: After deployment, manually set secrets in Render Dashboard:
-#   - All API keys (Stripe, OpenAI, Anthropic, Groq, LinkedIn, Clerk)
+#   - All API keys (Paystack, OpenAI, Anthropic, Groq, LinkedIn, Clerk)
 #   - Database URLs are auto-populated by Render
 # =============================================================================
 
@@ -58,6 +58,20 @@ services:
         value: "3.11"
       - key: ENVIRONMENT
         value: production
+      - key: DEV_MODE
+        value: "false"
+      - key: BACKEND_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: FRONTEND_DOMAIN
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SSL_VERIFY
+        value: "true"
+      - key: AUTH_REQUEST_TIMEOUT
+        value: "15"
       
       # Database (auto-populated by Render)
       - key: DATABASE_URL
@@ -79,13 +93,21 @@ services:
         sync: false
       
       # GitHub Integration
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
       - key: GITHUB_USERNAME
+        sync: false
+      - key: GITHUB_TOKEN
         sync: false
       
       # Clerk Authentication
       - key: CLERK_ISSUER
         sync: false
       - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_WEBHOOK_SECRET
         sync: false
       
       # AI Providers
@@ -98,22 +120,40 @@ services:
       - key: MISTRAL_API_KEY
         sync: false
       
-      # Stripe Payments
-      - key: STRIPE_SECRET_KEY
+      # Paystack Payments
+      - key: PAYSTACK_SECRET_KEY
         sync: false
-      - key: STRIPE_WEBHOOK_SECRET
+      - key: PAYSTACK_PUBLIC_KEY
         sync: false
-      - key: STRIPE_PRICE_ID_PRO
+      - key: PAYSTACK_WEBHOOK_SECRET
+        sync: false
+      - key: PAYSTACK_PLAN_PRO_MONTHLY
+        sync: false
+      - key: PAYSTACK_PLAN_PRO_YEARLY
+        sync: false
+      - key: PAYSTACK_SUCCESS_URL
+        sync: false
+      - key: PAYSTACK_CANCEL_URL
+        sync: false
+      - key: PAYSTACK_MANAGE_SUBSCRIPTION_URL
+        sync: false
+
+      # Images / Media
+      - key: UNSPLASH_ACCESS_KEY
         sync: false
       
       # Email (Optional)
-      - key: SMTP_HOST
+      - key: SMTP_SERVER
         sync: false
       - key: SMTP_PORT
         sync: false
-      - key: SMTP_USER
+      - key: SMTP_USERNAME
         sync: false
       - key: SMTP_PASSWORD
+        sync: false
+      - key: FROM_EMAIL
+        sync: false
+      - key: ADMIN_EMAIL
         sync: false
       
       # Security
@@ -135,6 +175,9 @@ services:
     # Override the CMD to run Celery worker
     dockerCommand: celery -A services.celery_app worker --loglevel=info --concurrency=2
     envVars:
+      - key: ENVIRONMENT
+        value: production
+
       # Database
       - key: DATABASE_URL
         fromDatabase:
@@ -165,6 +208,14 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
+
+      # Network / OAuth
+      - key: SSL_VERIFY
+        value: "true"
+      - key: AUTH_REQUEST_TIMEOUT
+        value: "15"
       
       # Security
       - key: SECRET_KEY
@@ -185,6 +236,9 @@ services:
     # Override the CMD to run Celery beat scheduler
     dockerCommand: celery -A services.celery_app beat --loglevel=info
     envVars:
+      - key: ENVIRONMENT
+        value: production
+
       # Database (for reading scheduled tasks)
       - key: DATABASE_URL
         fromDatabase:
@@ -221,11 +275,17 @@ services:
       # Clerk Authentication (public key)
       - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
         sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
       
       # OAuth Redirect URI
       - key: NEXT_PUBLIC_REDIRECT_URI
         sync: false
+
+      # Site URL (used for SEO/canonical URLs)
+      - key: NEXT_PUBLIC_SITE_URL
+        sync: false
       
-      # Stripe (for client-side checkout)
-      - key: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+      # Paystack (for client-side checkout, if used)
+      - key: NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
         sync: false
