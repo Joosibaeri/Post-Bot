@@ -39,6 +39,19 @@ def upgrade() -> None:
         """
     )
 
+    # Backfill missing columns for legacy subscriptions tables that predate Paystack fields.
+    op.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS paystack_customer_code VARCHAR(255)")
+    op.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS paystack_subscription_code VARCHAR(255)")
+    op.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS paystack_email_token VARCHAR(255)")
+    op.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS paystack_authorization_code VARCHAR(255)")
+    op.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS plan_id VARCHAR(255)")
+    op.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'inactive'")
+    op.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS current_period_start BIGINT")
+    op.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS current_period_end BIGINT")
+    op.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS cancel_at_period_end INTEGER DEFAULT 0")
+    op.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS created_at BIGINT")
+    op.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at BIGINT")
+
     op.execute("CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id)")
     op.execute("CREATE INDEX IF NOT EXISTS idx_subscriptions_paystack_customer ON subscriptions(paystack_customer_code)")
     op.execute("CREATE INDEX IF NOT EXISTS idx_subscriptions_paystack_subscription ON subscriptions(paystack_subscription_code)")
