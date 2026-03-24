@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 # SECURITY: Determine environment mode
 # - "production" = strict mode, encryption required
 # - "development" or unset = permissive mode for local dev
-ENV = os.getenv('ENV', 'development').lower()
+ENV = os.getenv('ENV', os.getenv('ENVIRONMENT', 'development')).lower()
 IS_PRODUCTION = ENV == 'production'
 
 # Load encryption key from environment

@@ -105,10 +105,14 @@ except ImportError:
     publish_limiter = None
 
 try:
-    from middleware.clerk_auth import get_current_user
+    from middleware.clerk_auth import get_current_user, require_auth
 except ImportError:
     logger.error("clerk_auth_import_failed", detail="Authentication middleware unavailable - all authenticated endpoints will reject requests")
     async def get_current_user():
+        """Fallback that rejects all requests when auth middleware is unavailable."""
+        raise HTTPException(status_code=503, detail="Authentication service unavailable")
+
+    async def require_auth():
         """Fallback that rejects all requests when auth middleware is unavailable."""
         raise HTTPException(status_code=503, detail="Authentication service unavailable")
 
@@ -157,7 +161,7 @@ class BatchGenerateRequest(BaseModel):
 @router.post("/generate-preview")
 async def generate_preview(
     req: GenerateRequest,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(require_auth)
 ):
     """Generate an AI post preview from context.
     
@@ -172,12 +176,8 @@ async def generate_preview(
         if not generate_post_with_ai:
             raise HTTPException(status_code=503, detail="AI service not available")
     
-    # Use authenticated user_id if available, otherwise fall back to request body
-    user_id = None
-    if current_user and current_user.get("user_id"):
-        user_id = current_user["user_id"]
-    elif req.user_id:
-        user_id = req.user_id
+    # Auth is required for this endpoint, so use authenticated user_id only
+    user_id = current_user.get("user_id") if current_user else None
     
     # Rate limiting check (10 requests/hour for AI generation)
     if RATE_LIMITING_ENABLED and post_generation_limiter and user_id:

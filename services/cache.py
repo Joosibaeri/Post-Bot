@@ -1,168 +1,129 @@
 """
-Simple File-Based Cache for GitHub Activity
+Redis-backed cache for GitHub activity.
 
-Provides caching to reduce GitHub API calls.
+Uses Redis in production for cross-worker consistency and falls back to an
+in-memory TTL cache in local/dev environments.
 """
 
 import json
-import time
+import logging
 import os
-from typing import Optional, Any, Dict
-from pathlib import Path
-import hashlib
+import time
+from threading import Lock
+from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
-class FileCache:
-    """
-    Simple file-based cache with TTL support.
-    """
-    
-    def __init__(self, cache_dir: str = ".cache", default_ttl: int = 300):
-        """
-        Initialize cache.
-        
-        Args:
-            cache_dir: Directory to store cache files
-            default_ttl: Default time-to-live in seconds (5 minutes)
-        """
-        self.cache_dir = Path(cache_dir)
+class RedisCache:
+    """Cache implementation backed by Redis with in-memory fallback."""
+
+    def __init__(self, prefix: str = "cache", default_ttl: int = 300):
+        self.prefix = prefix
         self.default_ttl = default_ttl
-        self._ensure_cache_dir()
-    
-    def _ensure_cache_dir(self):
-        """Create cache directory if it doesn't exist."""
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-    
-    def _get_cache_path(self, key: str) -> Path:
-        """Get file path for a cache key."""
-        # Hash the key to create a valid filename
-        key_hash = hashlib.md5(key.encode()).hexdigest()
-        return self.cache_dir / f"{key_hash}.json"
-    
+        self._mem_store: dict[str, tuple[float, Any]] = {}
+        self._lock = Lock()
+        self._redis = None
+
+        redis_url = os.getenv("REDIS_URL", "")
+        if redis_url:
+            try:
+                import redis
+                self._redis = redis.from_url(redis_url, decode_responses=True, socket_connect_timeout=2)
+                self._redis.ping()
+                logger.info("cache_backend_initialized", backend="redis")
+            except Exception as e:
+                logger.warning("cache_backend_fallback", backend="memory", reason=str(e))
+                self._redis = None
+
+    def _full_key(self, key: str) -> str:
+        return f"{self.prefix}:{key}"
+
     def get(self, key: str) -> Optional[Any]:
-        """
-        Get value from cache.
-        
-        Args:
-            key: Cache key
-            
-        Returns:
-            Cached value or None if not found/expired
-        """
-        cache_path = self._get_cache_path(key)
-        
-        if not cache_path.exists():
-            return None
-        
-        try:
-            with open(cache_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            # Check if expired
-            if time.time() > data.get('expires_at', 0):
-                self.delete(key)
+        redis_key = self._full_key(key)
+
+        if self._redis is not None:
+            try:
+                raw = self._redis.get(redis_key)
+                return json.loads(raw) if raw else None
+            except Exception as e:
+                logger.warning("cache_get_redis_failed", key=redis_key, error=str(e))
+
+        with self._lock:
+            entry = self._mem_store.get(redis_key)
+            if not entry:
                 return None
-            
-            return data.get('value')
-        except (json.JSONDecodeError, IOError):
-            self.delete(key)
-            return None
-    
+            expires_at, value = entry
+            if time.time() > expires_at:
+                self._mem_store.pop(redis_key, None)
+                return None
+            return value
+
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
-        """
-        Set value in cache.
-        
-        Args:
-            key: Cache key
-            value: Value to cache (must be JSON serializable)
-            ttl: Time-to-live in seconds (uses default if not specified)
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        cache_path = self._get_cache_path(key)
-        ttl = ttl if ttl is not None else self.default_ttl
-        
-        try:
-            data = {
-                'value': value,
-                'expires_at': time.time() + ttl,
-                'created_at': time.time(),
-            }
-            
-            with open(cache_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f)
-            
-            return True
-        except (IOError, TypeError):
-            return False
-    
+        redis_key = self._full_key(key)
+        ttl_seconds = ttl if ttl is not None else self.default_ttl
+
+        if self._redis is not None:
+            try:
+                return bool(self._redis.setex(redis_key, ttl_seconds, json.dumps(value)))
+            except Exception as e:
+                logger.warning("cache_set_redis_failed", key=redis_key, error=str(e))
+
+        with self._lock:
+            self._mem_store[redis_key] = (time.time() + ttl_seconds, value)
+        return True
+
     def delete(self, key: str) -> bool:
-        """
-        Delete value from cache.
-        
-        Args:
-            key: Cache key
-            
-        Returns:
-            True if deleted, False if not found
-        """
-        cache_path = self._get_cache_path(key)
-        
-        try:
-            if cache_path.exists():
-                cache_path.unlink()
-                return True
-        except IOError:
-            pass
-        
-        return False
-    
+        redis_key = self._full_key(key)
+
+        if self._redis is not None:
+            try:
+                return bool(self._redis.delete(redis_key))
+            except Exception as e:
+                logger.warning("cache_delete_redis_failed", key=redis_key, error=str(e))
+
+        with self._lock:
+            return self._mem_store.pop(redis_key, None) is not None
+
     def clear(self) -> int:
-        """
-        Clear all cache entries.
-        
-        Returns:
-            Number of entries cleared
-        """
-        count = 0
-        try:
-            for cache_file in self.cache_dir.glob("*.json"):
-                cache_file.unlink()
-                count += 1
-        except IOError:
-            pass
-        
-        return count
-    
+        """Clear all keys under the configured prefix."""
+        if self._redis is not None:
+            try:
+                cursor = 0
+                total = 0
+                pattern = f"{self.prefix}:*"
+                while True:
+                    cursor, keys = self._redis.scan(cursor=cursor, match=pattern, count=100)
+                    if keys:
+                        total += self._redis.delete(*keys)
+                    if cursor == 0:
+                        break
+                return int(total)
+            except Exception as e:
+                logger.warning("cache_clear_redis_failed", error=str(e))
+
+        with self._lock:
+            count = len(self._mem_store)
+            self._mem_store.clear()
+            return count
+
     def cleanup_expired(self) -> int:
-        """
-        Remove expired cache entries.
-        
-        Returns:
-            Number of entries removed
-        """
-        count = 0
-        try:
-            for cache_file in self.cache_dir.glob("*.json"):
-                try:
-                    with open(cache_file, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                    
-                    if time.time() > data.get('expires_at', 0):
-                        cache_file.unlink()
-                        count += 1
-                except (json.JSONDecodeError, IOError):
-                    cache_file.unlink()
-                    count += 1
-        except IOError:
-            pass
-        
-        return count
+        """Remove expired entries from fallback memory cache (Redis handles TTL natively)."""
+        if self._redis is not None:
+            return 0
+
+        now = time.time()
+        removed = 0
+        with self._lock:
+            stale_keys = [k for k, (expires_at, _) in self._mem_store.items() if now > expires_at]
+            for key in stale_keys:
+                self._mem_store.pop(key, None)
+                removed += 1
+        return removed
 
 
 # Global cache instance for GitHub activity
-github_cache = FileCache(cache_dir=".cache/github", default_ttl=300)  # 5 minute cache
+github_cache = RedisCache(prefix="github", default_ttl=300)
 
 
 def cache_github_activity(username: str, activities: list, ttl: int = 300) -> bool:
