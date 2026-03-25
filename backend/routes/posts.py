@@ -756,6 +756,39 @@ async def publish(
                 status_code=502,
                 detail="LinkedIn rejected the post. Your token may be expired — try reconnecting your account in Settings."
             )
+
+        # Persist successful publish in post history (backend-authoritative).
+        try:
+            from services.db import get_database
+            from repositories.posts import PostRepository
+
+            db = get_database()
+            repo = PostRepository(db, user_id)
+
+            linkedin_post_id = result.get("id") if isinstance(result, dict) else None
+
+            # If caller supplied a DB post_id, update it; otherwise create a published row.
+            if req.post_id:
+                try:
+                    await repo.update_status(int(req.post_id), 'published', linkedin_post_id)
+                except Exception:
+                    await repo.save_post(
+                        post_content=post,
+                        post_type='mixed',
+                        context=req.context if isinstance(req.context, dict) else {},
+                        status='published',
+                        linkedin_post_id=linkedin_post_id,
+                    )
+            else:
+                await repo.save_post(
+                    post_content=post,
+                    post_type='mixed',
+                    context=req.context if isinstance(req.context, dict) else {},
+                    status='published',
+                    linkedin_post_id=linkedin_post_id,
+                )
+        except Exception as e:
+            logger.error("failed_to_persist_published_post", user_id=user_id, error=str(e))
         
         # Refresh learned patterns after successful publish (fire-and-forget)
         if user_id:

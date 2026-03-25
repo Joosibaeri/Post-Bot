@@ -71,6 +71,7 @@ def get_db_functions():
     from services.token_store import get_token_by_user_id
     from services.linkedin_service import post_to_linkedin
     from services.db import connect_db, disconnect_db
+    from services.post_history import save_post
     
     return {
         'get_due_posts': get_due_posts,
@@ -79,6 +80,7 @@ def get_db_functions():
         'post_to_linkedin': post_to_linkedin,
         'connect_db': connect_db,
         'disconnect_db': disconnect_db,
+        'save_post': save_post,
     }
 
 
@@ -143,12 +145,25 @@ async def _process_due_posts_async() -> int:
             if isinstance(result, dict):
                 success = result.get('success', False)
                 error_msg = result.get('error', 'Unknown error')
+                post_id_result = result.get('id')
             else:
                 success = bool(result)
                 error_msg = 'Publishing returned failure'
+                post_id_result = None
             
             if success:
                 await funcs['update_post_status'](post_id, 'published')
+                try:
+                    await funcs['save_post'](
+                        user_id=user_id,
+                        post_content=post['post_content'],
+                        post_type='scheduled',
+                        context={'scheduled_post_id': post_id, 'scheduled_time': post.get('scheduled_time')},
+                        status='published',
+                        linkedin_post_id=post_id_result,
+                    )
+                except Exception as persist_err:
+                    log.warning("scheduled_publish_history_persist_failed", error=str(persist_err))
                 log.info("post_published_successfully")
             else:
                 await funcs['update_post_status'](post_id, 'failed', error_msg)
@@ -213,6 +228,17 @@ async def _publish_single_post_async(
         
         if success:
             await funcs['update_post_status'](post_id, 'published')
+            try:
+                await funcs['save_post'](
+                    user_id=user_id,
+                    post_content=post_content,
+                    post_type='scheduled',
+                    context={'scheduled_post_id': post_id},
+                    status='published',
+                    linkedin_post_id=post_id_result,
+                )
+            except Exception as persist_err:
+                log.warning("single_scheduled_history_persist_failed", error=str(persist_err))
             log.info("single_post_published")
             return {'success': True, 'linkedin_post_id': post_id_result}
         else:

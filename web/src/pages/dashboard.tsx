@@ -299,7 +299,9 @@ export default function Dashboard() {
       }
       if (result.post) {
         setPreview(result.post);
-        await savePost(result.post, testMode ? 'draft' : 'published');
+        if (testMode) {
+          await savePost(result.post, 'draft');
+        }
 
         // Auto-trigger feedback popup after 2nd successful publish
         if (!testMode) {

@@ -192,7 +192,7 @@ async def get_usage(user_id: str, timezone: str = "UTC", current_user: dict = De
         midnight_ts = int(midnight.timestamp())
         
         posts_today_result = await db.fetch_one(
-            "SELECT COUNT(*) as count FROM post_history WHERE user_id = $1 AND created_at > $2",
+            "SELECT COUNT(*) as count FROM post_history WHERE user_id = $1 AND status = 'published' AND published_at > $2",
             [user_id, midnight_ts]
         )
         posts_today = posts_today_result['count'] if posts_today_result else 0
@@ -656,7 +656,7 @@ async def get_templates():
 # POSTS HISTORY ENDPOINT
 # =============================================================================
 @router.get("/posts/{user_id}")
-async def get_posts_history(user_id: str, limit: int = 10, current_user: dict = Depends(require_auth)):
+async def get_posts_history(user_id: str, limit: int = 50, current_user: dict = Depends(require_auth)):
     """Get post history for a user."""
     _verify_user_ownership(current_user, user_id)
     try:
@@ -670,19 +670,63 @@ async def get_posts_history(user_id: str, limit: int = 10, current_user: dict = 
         )
         
         import json as _json
+
+        def _safe_json(value, default):
+            """Decode JSON safely across legacy text, JSONB, or malformed rows."""
+            if value is None:
+                return default
+            if isinstance(value, (dict, list)):
+                return value
+            if isinstance(value, str):
+                try:
+                    return _json.loads(value)
+                except Exception:
+                    return default
+            return default
+
         posts = []
         for row in rows:
             posts.append({
                 "id": row['id'],
                 "post_content": row['post_content'],
                 "post_type": row.get('post_type', 'push'),
-                "context": _json.loads(row['context']) if row.get('context') else {},
+                "context": _safe_json(row.get('context'), {}),
                 "status": row['status'],
                 "linkedin_post_id": row.get('linkedin_post_id'),
-                "engagement": _json.loads(row['engagement']) if row.get('engagement') else {},
+                "engagement": _safe_json(row.get('engagement'), {}),
                 "created_at": row['created_at'],
                 "published_at": row.get('published_at'),
             })
+
+        # Legacy compatibility: older scheduled publishes may exist only in scheduled_posts.
+        # If no published items are present in post_history, hydrate from scheduled_posts.
+        has_published = any((p.get("status") or "").lower() == "published" for p in posts)
+        if not has_published:
+            scheduled_rows = await db.fetch_all(
+                """SELECT id, post_content, created_at, published_at
+                   FROM scheduled_posts
+                   WHERE user_id = $1 AND status = 'published'
+                   ORDER BY COALESCE(published_at, created_at) DESC
+                   LIMIT $2""",
+                [user_id, limit]
+            )
+
+            for row in scheduled_rows:
+                created_ts = row.get('published_at') or row.get('created_at')
+                posts.append({
+                    "id": f"scheduled-{row['id']}",
+                    "post_content": row['post_content'],
+                    "post_type": "scheduled",
+                    "context": {"source": "scheduled_posts", "scheduled_post_id": row['id']},
+                    "status": "published",
+                    "linkedin_post_id": None,
+                    "engagement": {},
+                    "created_at": created_ts,
+                    "published_at": row.get('published_at'),
+                })
+
+        posts.sort(key=lambda p: p.get("created_at") or 0, reverse=True)
+        posts = posts[:limit]
         return {"posts": posts}
     except Exception as e:
         logger.error(f"Error getting posts history: {e}")

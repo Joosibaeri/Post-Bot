@@ -26,7 +26,7 @@ async function fetchStats(userId: string, getToken: () => Promise<string | null>
     return schemas.StatsResponseSchema.parse(response.data);
 }
 
-async function fetchPostHistory(userId: string, getToken: () => Promise<string | null>, limit = 10): Promise<Post[]> {
+async function fetchPostHistory(userId: string, getToken: () => Promise<string | null>, limit = 50): Promise<Post[]> {
     const token = await getToken();
     const response = await api.get(`/api/posts/${userId}?limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` }
