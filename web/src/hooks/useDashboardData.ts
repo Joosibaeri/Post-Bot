@@ -31,8 +31,37 @@ async function fetchPostHistory(userId: string, getToken: () => Promise<string |
     const response = await api.get(`/api/posts/${userId}?limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` }
     });
-    const parsed = schemas.PostsResponseSchema.parse(response.data);
-    return parsed.posts as unknown as Post[];
+
+    // Be resilient to legacy/mixed row shapes so one malformed row does not blank history.
+    const rawPosts = Array.isArray(response.data?.posts) ? response.data.posts : [];
+
+    return rawPosts
+        .map((row: any) => {
+            if (!row) return null;
+
+            const createdRaw = row.created_at ?? row.published_at ?? Date.now();
+            const createdAt = typeof createdRaw === 'number'
+                ? createdRaw
+                : Number(createdRaw) || Math.floor(Date.now() / 1000);
+
+            const normalized = {
+                id: row.id,
+                post_content: typeof row.post_content === 'string'
+                    ? row.post_content
+                    : (typeof row.content === 'string' ? row.content : ''),
+                post_type: typeof row.post_type === 'string' ? row.post_type : 'push',
+                context: row.context && typeof row.context === 'object' ? row.context : {},
+                status: typeof row.status === 'string' ? row.status : 'draft',
+                linkedin_post_id: row.linkedin_post_id ?? null,
+                engagement: row.engagement && typeof row.engagement === 'object' ? row.engagement : {},
+                created_at: createdAt,
+                published_at: typeof row.published_at === 'number' ? row.published_at : null,
+            };
+
+            // Drop rows with no content to avoid empty cards.
+            return normalized.post_content ? normalized : null;
+        })
+        .filter(Boolean) as unknown as Post[];
 }
 
 async function fetchUsage(userId: string, getToken: () => Promise<string | null>): Promise<UsageData | null> {
