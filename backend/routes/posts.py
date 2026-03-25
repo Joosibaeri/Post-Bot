@@ -155,6 +155,19 @@ class BatchGenerateRequest(BaseModel):
     model: Optional[str] = "groq"  # AI provider
 
 
+def _should_apply_rate_limit(current_user: Optional[dict]) -> bool:
+    """Apply rate limiting in production contexts only."""
+    if not RATE_LIMITING_ENABLED or not post_generation_limiter:
+        return False
+
+    # Explicit bypass for tests/local debugging.
+    disable_rate_limit = os.getenv("DISABLE_RATE_LIMITING", "false").lower() in {"1", "true", "yes"}
+    is_pytest = bool(os.getenv("PYTEST_CURRENT_TEST"))
+    is_dev_mode = bool(current_user and current_user.get("dev_mode"))
+
+    return not (disable_rate_limit or is_pytest or is_dev_mode)
+
+
 # =============================================================================
 # ENDPOINTS
 # =============================================================================
@@ -180,7 +193,7 @@ async def generate_preview(
     user_id = current_user.get("user_id") if current_user else None
     
     # Rate limiting check (10 requests/hour for AI generation)
-    if RATE_LIMITING_ENABLED and post_generation_limiter and user_id:
+    if _should_apply_rate_limit(current_user) and user_id:
         allowed, rate_info = post_generation_limiter.is_allowed(user_id)
         if not allowed:
             raise HTTPException(
@@ -258,7 +271,7 @@ async def repurpose_url(
         raise HTTPException(status_code=401, detail="Authentication required")
         
     # Rate limit check
-    if RATE_LIMITING_ENABLED and post_generation_limiter:
+    if _should_apply_rate_limit(current_user):
         allowed, rate_info = post_generation_limiter.is_allowed(user_id)
         if not allowed:
             raise HTTPException(

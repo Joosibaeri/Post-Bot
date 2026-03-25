@@ -22,6 +22,11 @@ import requests
 logger = logging.getLogger(__name__)
 
 
+def _allow_env_fallback() -> bool:
+    """Environment fallback is opt-in to avoid cross-tenant credential bleed."""
+    return os.getenv('ALLOW_LINKEDIN_ENV_FALLBACK', 'false').lower() in {'1', 'true', 'yes'}
+
+
 def upload_image_to_linkedin(
     image_data: bytes, 
     access_token: str = None, 
@@ -49,8 +54,11 @@ def upload_image_to_linkedin(
     try:
         # Use provided credentials or fall back to environment
         # Read env vars at call time so they reflect runtime changes
-        token = access_token or os.getenv('LINKEDIN_ACCESS_TOKEN', '')
-        owner = linkedin_user_urn or os.getenv('LINKEDIN_USER_URN', '')
+        token = access_token
+        owner = linkedin_user_urn
+        if _allow_env_fallback():
+            token = token or os.getenv('LINKEDIN_ACCESS_TOKEN', '')
+            owner = owner or os.getenv('LINKEDIN_USER_URN', '')
         
         if not token or not owner:
             raise RuntimeError('Missing access_token or linkedin_user_urn for upload')
@@ -152,8 +160,11 @@ def post_to_linkedin(
     
     # Use provided credentials or fall back to environment
     # Read env vars at call time so they reflect runtime changes
-    token = access_token or os.getenv('LINKEDIN_ACCESS_TOKEN', '')
-    owner = linkedin_user_urn or os.getenv('LINKEDIN_USER_URN', '')
+    token = access_token
+    owner = linkedin_user_urn
+    if _allow_env_fallback():
+        token = token or os.getenv('LINKEDIN_ACCESS_TOKEN', '')
+        owner = owner or os.getenv('LINKEDIN_USER_URN', '')
     
     if not token or not owner:
         raise RuntimeError('Missing access_token or linkedin_user_urn for posting')

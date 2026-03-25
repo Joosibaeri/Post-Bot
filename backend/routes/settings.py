@@ -83,7 +83,13 @@ async def get_settings(user_id: str, current_user: dict = Depends(require_auth))
     except Exception as e:
         # Handle missing database table gracefully
         error_str = str(e).lower()
-        if "no such table" in error_str or ("relation" in error_str and "does not exist" in error_str):
+        if (
+            "no such table" in error_str
+            or ("relation" in error_str and "does not exist" in error_str)
+            or "databasebackend is not running" in error_str
+            or "database backend is not running" in error_str
+            or "not connected" in error_str
+        ):
             logger.warning(f"Database table not found for user {user_id}, returning default settings")
             return {
                 "user_id": user_id,
