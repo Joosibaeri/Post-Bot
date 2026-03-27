@@ -31,7 +31,7 @@ It's built for developers who want to grow their professional presence without s
 | Feature | Description |
 |---------|-------------|
 | **GitHub Activity Scanning** | Fetches your public commits, PRs, pushes, and new repos |
-| **AI Post Generation** | Multi-provider AI (Groq, OpenAI, Anthropic, Mistral) for natural, engaging LinkedIn content |
+| **AI Post Generation** | Multi-provider AI (Groq, OpenAI, Anthropic, Mistral and Gemini) for natural, engaging LinkedIn content |
 | **OAuth-based LinkedIn Posting** | Publishes via LinkedIn's official API with your authorization |
 | **Web Dashboard** | Modern UI with dark/light mode, stats, and post management |
 | **Multi-User Support** | Per-user credentials with Clerk authentication |
