@@ -21,7 +21,6 @@ import uuid
 from typing import Optional, Literal
 from enum import Enum
 from dataclasses import dataclass
-import requests
 
 import structlog
 
@@ -53,6 +52,13 @@ try:
 except ImportError:
     Mistral = None  # type: ignore
     MISTRAL_AVAILABLE = False
+
+try:
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
+except ImportError:
+    genai = None  # type: ignore
+    GEMINI_AVAILABLE = False
 
 logger = structlog.get_logger(__name__)
 
@@ -1006,58 +1012,38 @@ def _generate_with_gemini(
     temperature: float = 0.8,
 ) -> Optional[str]:
     """
-    Generate post using Google Gemini API.
+    Generate post using Google Gemini API via the official Python SDK.
 
     This is a PRO tier provider.
     """
+    if not GEMINI_AVAILABLE:
+        logger.error("Google Generative AI package not installed")
+        return None
+
     key = api_key or GEMINI_API_KEY
     if not key:
         logger.warning("No Gemini API key available")
         return None
 
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
-        payload = {
-            "system_instruction": {
-                "parts": [{"text": system_prompt}]
-            },
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": user_prompt}],
-                }
-            ],
-            "generationConfig": {
-                "temperature": temperature,
-                "maxOutputTokens": 1000,
-            },
-        }
+        genai.configure(api_key=key)
 
-        response = requests.post(
-            url,
-            params={"key": key},
-            json=payload,
-            timeout=30,
+        model = genai.GenerativeModel(
+            model_name=GEMINI_MODEL,
+            system_instruction=system_prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=temperature,
+                max_output_tokens=1000,
+            ),
         )
-        response.raise_for_status()
 
-        data = response.json()
-        candidates = data.get("candidates") or []
-        if not candidates:
-            logger.warning("gemini_empty_candidates", model=GEMINI_MODEL)
-            return None
+        response = model.generate_content(user_prompt)
 
-        parts = ((candidates[0].get("content") or {}).get("parts")) or []
-        if not parts:
-            logger.warning("gemini_empty_parts", model=GEMINI_MODEL)
-            return None
+        if response.text:
+            return response.text
 
-        text = parts[0].get("text")
-        if not text:
-            logger.warning("gemini_empty_text", model=GEMINI_MODEL)
-            return None
-
-        return text
+        logger.warning("gemini_empty_response", model=GEMINI_MODEL, parts=getattr(response, "parts", None))
+        return None
 
     except Exception as e:
         logger.error("gemini_generation_failed", error=str(e))
