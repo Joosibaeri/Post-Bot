@@ -1035,7 +1035,7 @@ def _generate_with_gemini(
 
         response = requests.post(
             url,
-            params={"key": key},
+            headers={"x-goog-api-key": key},
             json=payload,
             timeout=30,
         )
